@@ -552,10 +552,8 @@ def _ui_checks():
         check("只能放储物箱" in hint and "不能丢地上" in hint,
               "unique hint must explain the stash-only rule: %r" % hint)
         utext = uic.get_text(utab.preview)
-        check("可丢地上：否" in utext,
-              "unique preview must say 可丢地上：否:\n%s" % utext)
-        check("只能放储物箱" in utext,
-              "unique preview must warn about the stash:\n%s" % utext)
+        check("只能放储物箱" in utext and "不能丢地上" in utext,
+              "unique preview must say 只能放储物箱，不能丢地上:\n%s" % utext)
         # Re-checking is refused: it auto-unchecks again.
         utab.var_drop_safe.set(True)
         app.update_idletasks()

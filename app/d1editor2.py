@@ -39,7 +39,7 @@ class App(tk.Tk):
         # 自动测试（--selftest / smoke / 截图）一律禁止写真实存档：
         # 任何写 %APPDATA% 的尝试都会抛 ProtectedWriteError。
         d1env.ALLOW_PROTECTED_WRITES = not headless and not os.environ.get("D1_READONLY")
-        self.title(f"{APP_TITLE}  v{APP_VERSION}")
+        self.title(APP_TITLE)
         self.geometry("1260x920")
         self.minsize(1080, 760)
         self.game_running = False
@@ -64,22 +64,16 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------ 布局
     def _build_top(self) -> None:
-        bar = ttk.Frame(self, padding=(10, 8, 10, 4))
-        bar.grid(row=0, column=0, sticky="ew")
-        bar.columnconfigure(2, weight=1)
-        ttk.Label(bar, text=APP_TITLE, style="Title.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Label(bar, text=f"v{APP_VERSION}", style="Hint.TLabel").grid(
-            row=0, column=1, sticky="w", padx=(8, 16))
-        self.game_lbl = ttk.Label(bar, text="游戏状态：检查中…", style="Sub.TLabel")
-        self.game_lbl.grid(row=0, column=2, sticky="w")
-        ttk.Button(bar, text="刷新 (F5)", command=self.refresh_all).grid(row=0, column=3, padx=4)
-        ttk.Button(bar, text="打开存档目录",
-                   command=lambda: os.startfile(str(settings_dir()))).grid(row=0, column=4, padx=4)
+        self.top_bar = ttk.Frame(self, padding=(14, 8, 14, 4))
+        self.top_bar.grid(row=0, column=0, sticky="ew")
+        self.game_lbl = ttk.Label(self.top_bar, text="", style="Bad.TLabel")
+        self.game_lbl.grid(row=0, column=0, sticky="w")
+        self.top_bar.grid_remove()  # 只有游戏运行、禁止保存时才出现
         self.rowconfigure(0, weight=0)
 
     def _build_body(self) -> None:
         self.nb = ttk.Notebook(self)
-        self.nb.grid(row=1, column=0, sticky="nsew", padx=10, pady=(4, 0))
+        self.nb.grid(row=1, column=0, sticky="nsew", padx=12, pady=(4, 0))
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
         self.tab_char = CharTab(self.nb, self)
@@ -96,22 +90,23 @@ class App(tk.Tk):
             self.nb.select({"char": 0, "stash": 1, "gen": 2, "unique": 3}[start])
 
     def _build_bottom(self) -> None:
-        bottom = ttk.Frame(self, padding=(10, 4, 10, 8))
+        bottom = ttk.Frame(self, padding=(12, 4, 12, 8))
         bottom.grid(row=2, column=0, sticky="ew")
         bottom.columnconfigure(0, weight=1)
         self.log_pane = uic.LogPane(bottom, height=4)
         self.log_pane.grid(row=0, column=0, sticky="ew")
-        self.status_lbl = ttk.Label(bottom, text="就绪", style="Hint.TLabel")
+        self.log_pane.grid_remove()          # 平时只留一行状态，出错时展开
+        self.status_lbl = ttk.Label(bottom, text="", style="Hint.TLabel")
         self.status_lbl.grid(row=1, column=0, sticky="w", pady=(4, 0))
-        self.log(f"启动完成；pyc 模块：{'已加载' if self._modules_ok else '加载失败：' + str(MODULES.error)}")
+        if not self._modules_ok:
+            self.log(f"模块加载失败：{MODULES.error}", "err")
 
     def _build_menu(self) -> None:
         menubar = tk.Menu(self)
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="刷新 (F5)", command=self.refresh_all)
         file_menu.add_command(label="保存当前页 (Ctrl+S)", command=self._save_current)
-        file_menu.add_separator()
-        file_menu.add_command(label="打开存档目录", command=lambda: os.startfile(str(settings_dir())))
+        file_menu.add_command(label="打开存档目录",
+                              command=lambda: os.startfile(str(settings_dir())))
         file_menu.add_separator()
         file_menu.add_command(label="退出", command=self._on_close)
         menubar.add_cascade(label="文件", menu=file_menu)
@@ -126,6 +121,8 @@ class App(tk.Tk):
     def log(self, msg: str, tag: str | None = None) -> None:
         try:
             self.log_pane.write(str(msg), tag)
+            if tag in ("warn", "err"):
+                self.log_pane.grid()      # 出错时展开日志，方便回看
         except Exception:  # noqa: BLE001
             _selftest_out(msg)
         try:
@@ -140,7 +137,7 @@ class App(tk.Tk):
         elif idx == 1:
             self.tab_stash.save_gold()
         else:
-            self.log("装备生成页没有「保存」操作，生成时会自动保存。")
+            self.log("生成时自动保存")
 
     def _on_close(self) -> None:
         try:
@@ -183,13 +180,14 @@ class App(tk.Tk):
         changed = running != self.game_running
         self.game_running = running
         if running:
-            self.game_lbl.configure(text="● 游戏正在运行 —— 已禁用写存档，请先退出游戏",
-                                    style="Bad.TLabel")
+            self.game_lbl.configure(text="游戏正在运行，保存与写入已禁用")
+            self.top_bar.grid()
         else:
-            self.game_lbl.configure(text="● 游戏未运行 —— 可以安全写入存档", style="Ok.TLabel")
+            self.game_lbl.configure(text="")
+            self.top_bar.grid_remove()
         if changed:
-            self.log("检测到游戏%s" % ("启动：写操作已禁用" if running else "已退出：可以保存"), 
-                     "warn" if running else "ok")
+            self.log("游戏已启动，保存已禁用" if running else "游戏已退出",
+                     "warn" if running else None)
         try:
             self.tab_char._update_banner()
         except Exception:  # noqa: BLE001
@@ -202,10 +200,8 @@ class App(tk.Tk):
             self.game_running = False
         self._set_game_state(self.game_running)
         if self.game_running:
-            uic.warn("游戏正在运行",
-                     "检测到 devilutionx.exe 正在运行。\n\n"
-                     "游戏退出时会用内存里的角色覆盖存档，现在写入会丢失。\n请先退出游戏再保存。")
-            self.log("写操作被拒绝：游戏正在运行", "warn")
+            uic.warn("游戏正在运行", "退出游戏后再保存，否则改动会被覆盖。")
+            self.log("保存被拒绝：游戏正在运行", "warn")
             return False
         return True
 
@@ -278,6 +274,7 @@ class App(tk.Tk):
         except Exception as exc:  # noqa: BLE001
             self.log(f"刷新储物箱失败：{exc}", "warn")
         self.tab_gen._update_target_labels()
+        self.status_lbl.configure(text="")
 
     def on_char_loaded(self, path: Path) -> None:
         # ilvl 默认取角色等级（最多 50）
@@ -300,24 +297,19 @@ class App(tk.Tk):
     # ------------------------------------------------------------ 帮助
     def _show_help(self) -> None:
         uic.info("使用说明", (
-            "1) 角色页：改等级/属性/金币/法术后点「保存到存档」。\n"
-            "   写入前会自动备份 .bak 与 .bak-时间戳；默认保留关卡进度。\n\n"
-            "2) 储物箱页：金币改动只写 gold 字段，物品记录逐字节校验，确认一件不少才落盘。\n"
-            "   使用修正版 MPQ 写入（未压缩、无扇区表），不会再把箱子写空。\n\n"
-            "3) 装备生成页：选物品/ilvl/稀有度 → 生成到储物箱或角色背包。\n"
-            "   默认「随机合法」词条；非法组合会被拒绝并给出原因。\n\n"
-            "注意：写入前请退出游戏；游戏运行中本程序会拒绝保存。\n"
-            "真实存档位于 %APPDATA%\\diasurgical\\devilution。"
+            "角色：改完数值点「保存存档」，写入前自动备份；金币请到储物箱页修改。\n"
+            "储物箱：可修改金币、检查和删除物品。\n"
+            "装备生成 / 暗金图鉴：选好物品和等级，再选择写入位置。\n"
+            "各页的低频操作位于对应功能区的「更多」里。\n"
+            "ilvl 决定词缀范围；超过 34 只能放储物箱。\n\n"
+            "保存前请先退出游戏。\n"
+            "存档目录：%APPDATA%\\diasurgical\\devilution"
         ))
 
     def _show_about(self) -> None:
         uic.info("关于", (
-            f"{APP_TITLE} v{APP_VERSION}\n\n"
-            "本项目基于自研的 3.12 存档读写模块：\n"
-            "  · 角色读写：d1save.SaveFile / HeroPack\n"
-            "  · 储物箱写入：lib/d1stash2.py（修正 MPQ 扇区 bug）\n"
-            "  · 装备生成：lib/d1itemgen.py（1.5.5 规则移植）\n\n"
-            "适配 DevilutionX 1.5.5（非 Hellfire）。"
+            f"{APP_TITLE} v{APP_VERSION}\n"
+            "适配 DevilutionX 1.5.5（不含 Hellfire）。"
         ))
 
 
@@ -395,7 +387,7 @@ def run_selftest() -> int:
             failures.append(f"标签页数量 {len(tabs)} != 4")
 
         # 角色页控件
-        for name in ("save_box", "sp_level", "var_str", "var_gold", "spell_tree", "btn_save"):
+        for name in ("save_box", "sp_level", "var_str", "spell_tree", "btn_save"):
             if not hasattr(app.tab_char, name):
                 failures.append(f"角色页缺少控件 {name}")
         # 储物箱页

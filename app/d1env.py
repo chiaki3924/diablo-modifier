@@ -23,7 +23,7 @@ import traceback
 from pathlib import Path
 
 APP_TITLE = "暗黑破坏神1 存档修改器 v2"
-APP_VERSION = "2.5.0"
+APP_VERSION = "2.6.0"
 
 #: 允许写真实存档（%APPDATA%\diasurgical\devilution）。
 #: GUI 正常使用时为 True；--selftest / 自动测试（smoke/shots）必须先置 False，

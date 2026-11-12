@@ -8,10 +8,10 @@ from tkinter import filedialog, ttk
 import ui_common as uic
 from d1env import (backup_file, human_size, is_stash_path, list_save_files,
                    settings_dir, timestamp)
-from d1names import item_category, item_label, item_size
+from d1names import item_category, item_cn, item_size
 from d1stash_adapter import (StashUnavailable, open_stash, record_fields,
-                             record_is_unique, record_label_cn, record_runtime_idx,
-                             stash_backend_ready)
+                             record_is_unique, record_label_cn, record_name_cn,
+                             record_runtime_idx, stash_backend_ready)
 
 
 class StashTab(ttk.Frame):
@@ -30,65 +30,74 @@ class StashTab(ttk.Frame):
     # ------------------------------------------------------------ 构建
     def _build(self) -> None:
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(3, weight=1)
+        self.rowconfigure(2, weight=1)
 
-        top = ttk.LabelFrame(self, text="储物箱文件（stash.sv）", padding=8)
+        top = ttk.Frame(self, padding=(4, 2, 4, 10))
         top.grid(row=0, column=0, sticky="ew")
         top.columnconfigure(1, weight=1)
-        ttk.Label(top, text="文件：").grid(row=0, column=0, sticky="e")
+        ttk.Label(top, text="储物箱").grid(row=0, column=0, sticky="e")
         self.file_var = tk.StringVar()
         self.file_box = ttk.Combobox(top, textvariable=self.file_var, state="readonly")
-        self.file_box.grid(row=0, column=1, sticky="ew", padx=(0, 6))
+        self.file_box.grid(row=0, column=1, sticky="ew", padx=(8, 6))
         self.file_box.bind("<<ComboboxSelected>>", lambda e: self._on_pick())
         ttk.Button(top, text="浏览…", command=self._browse).grid(row=0, column=2, padx=3)
-        ttk.Button(top, text="重新加载", command=self.reload).grid(row=0, column=3, padx=3)
+        ttk.Button(top, text="重载", command=self.reload).grid(row=0, column=3, padx=3)
 
         self.mode_var = tk.StringVar(value="单人")
         mode = ttk.Frame(top)
-        mode.grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        ttk.Label(mode, text="类型：").grid(row=0, column=0)
-        ttk.Radiobutton(mode, text="单人（spstashitems）", value="单人",
-                        variable=self.mode_var, command=self._on_mode).grid(row=0, column=1)
-        ttk.Radiobutton(mode, text="多人（mpstashitems）", value="多人",
-                        variable=self.mode_var, command=self._on_mode).grid(row=0, column=2, padx=8)
-        self.backend_lbl = ttk.Label(top, text="", style="Hint.TLabel")
-        self.backend_lbl.grid(row=2, column=0, columnspan=4, sticky="w", pady=(6, 0))
-
+        mode.grid(row=0, column=4, sticky="e", padx=(12, 0))
+        ttk.Radiobutton(mode, text="单人", value="单人",
+                        variable=self.mode_var, command=self._on_mode).grid(row=0, column=0)
+        ttk.Radiobutton(mode, text="多人", value="多人",
+                        variable=self.mode_var, command=self._on_mode).grid(row=0, column=1, padx=8)
+        self.backend_lbl = ttk.Label(top, text="", style="Bad.TLabel")
+        self.backend_lbl.grid(row=2, column=0, columnspan=5, sticky="w", pady=(6, 0))
+        self.backend_lbl.grid_remove()
         self.file_info = ttk.Label(top, text="", style="Hint.TLabel")
-        self.file_info.grid(row=3, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        self.file_info.grid_remove()
 
-        gold = ttk.LabelFrame(self, text="金币", padding=8)
-        gold.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        ttk.Label(gold, text="箱内金币").grid(row=0, column=0, sticky="e")
+        ttk.Label(top, text="金币").grid(row=1, column=0, sticky="e", pady=(10, 0))
+        gold = ttk.Frame(top)
+        gold.grid(row=1, column=1, columnspan=4, sticky="ew", pady=(10, 0))
         self.var_gold = tk.StringVar(value="0")
-        ttk.Entry(gold, textvariable=self.var_gold, width=16).grid(row=0, column=1, padx=(6, 12))
-        ttk.Button(gold, text="保存金币", command=self.save_gold).grid(row=0, column=2, padx=3)
-        self.lbl_count = ttk.Label(gold, text="物品数：—", style="Sub.TLabel")
-        self.lbl_count.grid(row=0, column=3, padx=16)
-        self.lbl_pages = ttk.Label(gold, text="页数：—", style="Sub.TLabel")
-        self.lbl_pages.grid(row=0, column=4, padx=8)
+        ttk.Entry(gold, textvariable=self.var_gold, width=16).pack(side="left")
+        self.btn_gold = ttk.Button(gold, text="保存金币", style="Primary.TButton",
+                                   command=self.save_gold)
+        self.btn_gold.pack(side="left", padx=(8, 18))
+        self.lbl_count = ttk.Label(gold, text="物品 —", style="Sub.TLabel")
+        self.lbl_count.pack(side="left", padx=(0, 14))
+        self.lbl_pages = ttk.Label(gold, text="页数 —", style="Sub.TLabel")
+        self.lbl_pages.pack(side="left")
 
         bar = ttk.Frame(self)
-        bar.grid(row=2, column=0, sticky="ew", pady=(8, 4))
-        ttk.Button(bar, text="刷新列表", command=self.reload).grid(row=0, column=0)
-        ttk.Button(bar, text="删除选中物品", command=self.delete_selected).grid(
-            row=0, column=1, padx=8)
-        self.btn_check = ttk.Button(bar, text="检查异常物品", command=self.check_items)
-        self.btn_check.grid(row=0, column=2, padx=(0, 8))
+        bar.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        bar.columnconfigure(1, weight=1)
+        ttk.Label(bar, text="物品", style="Title.TLabel").grid(row=0, column=0, sticky="w")
         self.lbl_issues = ttk.Label(bar, text="", style="Hint.TLabel")
-        self.lbl_issues.grid(row=0, column=3, sticky="w", padx=4)
+        self.lbl_issues.grid(row=0, column=1, sticky="w", padx=10)
+        self.btn_check = ttk.Button(bar, text="检查异常物品", command=self.check_items)
+        self.btn_check.grid_remove()
+        uic.more_button(bar, (("检查异常物品", self.check_items),)).grid(
+            row=0, column=2, padx=(0, 6))
+        self.btn_delete = ttk.Button(bar, text="删除选中", command=self.delete_selected)
+        self.btn_delete.grid(row=0, column=3)
+        self.btn_delete.state(["disabled"])
         self.status = ttk.Label(bar, text="", style="Hint.TLabel")
-        self.status.grid(row=0, column=4, sticky="w", padx=8)
-
-        self.warn_lbl = ttk.Label(self, text="", style="Bad.TLabel", wraplength=1080,
-                                  justify="left")
-        self.warn_lbl.grid(row=4, column=0, sticky="w", pady=(4, 0))
+        self.status.grid_remove()
 
         frame, self.tree = uic.make_tree(
             self, ("page", "pos", "name", "type", "unique", "idx"),
             ("页", "位置", "名称", "类型", "暗金", "序号"),
-            widths=(50, 80, 380, 140, 60, 70), height=14, stretch_col="name")
-        frame.grid(row=3, column=0, sticky="nsew")
+            widths=(50, 90, 420, 130, 60, 70), height=18, stretch_col="name")
+        frame.grid(row=2, column=0, sticky="nsew")
+        self.tree.bind("<<TreeviewSelect>>", lambda e: self._on_tree_select())
+
+        self.warn_lbl = ttk.Label(self, text="", style="Bad.TLabel", wraplength=1080,
+                                  justify="left")
+        self.warn_lbl.grid(row=3, column=0, sticky="w", pady=(6, 0))
+
+    def _on_tree_select(self) -> None:
+        self.btn_delete.state(["!disabled"] if self.tree.selection() else ["disabled"])
 
     # ------------------------------------------------------------ 文件列表
     def refresh_files(self, select: Path | None = None) -> None:
@@ -153,25 +162,23 @@ class StashTab(ttk.Frame):
             uic.error("打开储物箱失败", str(last_exc))
             self.app.log(f"储物箱打开失败：{last_exc}", "err")
             return
-        if getattr(self.stash, "writes_blocked", False):
-            self.backend_lbl.configure(
-                text="⚠ 只读模式（自动测试/截图流程）：查看正常，禁止写入真实存档",
-                style="Bad.TLabel")
-        elif getattr(self.stash, "is_readonly", False):
-            self.backend_lbl.configure(text="⚠ d1stash2 未就绪：只读浏览模式，禁止保存",
-                                       style="Bad.TLabel")
+        readonly = (getattr(self.stash, "writes_blocked", False)
+                    or getattr(self.stash, "is_readonly", False))
+        if readonly:
+            self.backend_lbl.configure(text="只读模式，不能保存", style="Bad.TLabel")
+            self.backend_lbl.grid()
+            self.btn_gold.state(["disabled"])
         else:
-            self.backend_lbl.configure(text="✔ 使用修正版写入（d1stash2，不丢物品）",
-                                       style="Ok.TLabel")
+            self.backend_lbl.grid_remove()
+            self.btn_gold.state(["!disabled"])
         st = path.stat()
         import datetime
         mtime = datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-        self.file_info.configure(text=f"{path}    {human_size(st.st_size)}    修改时间 {mtime}")
+        self.file_info.configure(text=f"{path}")
         self.var_gold.set(str(self.stash.gold))
         self._fill_list()
         self.status.configure(text="")
-        self.app.log(f"已载入储物箱：{path.name}（金币 {self.stash.gold:,}，"
-                     f"{self.stash.item_count()} 件物品）")
+        self.app.log(f"已载入 {path.name}")
         self.app.on_stash_loaded(path)
 
     def reload(self) -> None:
@@ -204,15 +211,15 @@ class StashTab(ttk.Frame):
             page, x, y = pos.get(i + 1, (-1, -1, -1))
             w, h = item_size(record_runtime_idx(rec))
             idx = record_runtime_idx(rec)
-            name = record_label_cn(rec) or item_label(idx)
+            name = record_name_cn(rec) or item_cn(idx)
             page_s = str(page) if page >= 0 else "?"
             pos_s = f"{x},{y} {w}x{h}" if x >= 0 else "—"
             unique = "★" if (fields.get("magical") or 0) >= 2 else ""
             row = self.tree.insert("", "end", values=(
                 page_s, pos_s, name, item_category(idx), unique, i))
             self._rows[row] = i
-        self.lbl_count.configure(text=f"物品数：{self.stash.item_count()}")
-        self.lbl_pages.configure(text=f"页数：{len(self.stash.pages())}")
+        self.lbl_count.configure(text=f"物品 {self.stash.item_count()}")
+        self.lbl_pages.configure(text=f"页数 {len(self.stash.pages())}")
 
     # ------------------------------------------------------------ 异常物品
     def _gen_adapter(self):
@@ -232,7 +239,7 @@ class StashTab(ttk.Frame):
             return out
         gen = self._gen_adapter()
         for i, rec in enumerate(self.stash.records):
-            name = record_label_cn(rec) or item_label(record_runtime_idx(rec))
+            name = record_name_cn(rec) or item_cn(record_runtime_idx(rec))
             if gen is None:
                 # 没有生成器时至少查 starter（运行时 166/1/2/5 这类）
                 issues = self._fallback_check(rec)
@@ -264,17 +271,14 @@ class StashTab(ttk.Frame):
         fatal = sum(1 for i in issues if i[2] == "fatal")
         if not issues:
             self.warn_lbl.configure(text="")
-            self.lbl_issues.configure(text="✔ 未发现异常物品", style="Ok.TLabel")
+            self.lbl_issues.configure(text="")
             return
         names = "、".join(dict.fromkeys(i[1] for i in issues[:5]))
-        if fatal:
-            self.warn_lbl.configure(
-                text=f"⚠ 储物箱里有 {len(issues)} 处可疑物品（其中 {fatal} 处会导致进游戏崩溃）："
-                     f"{names}。请点「检查异常物品」查看并清理。")
-        else:
-            self.warn_lbl.configure(
-                text=f"⚠ 储物箱里有 {len(issues)} 处可疑物品（不一定会崩溃，建议检查）：{names}。")
-        self.lbl_issues.configure(text=f"⚠ {len(issues)} 处可疑", style="Bad.TLabel")
+        self.warn_lbl.configure(
+            text=f"发现 {len(issues)} 处可疑物品"
+                 + (f"（{fatal} 处会让游戏崩溃）" if fatal else "")
+                 + f"：{names}")
+        self.lbl_issues.configure(text="", style="Bad.TLabel")
         self.app.log(f"储物箱体检：发现 {len(issues)} 处可疑物品（{names}）",
                      "err" if fatal else "warn")
 
@@ -297,7 +301,7 @@ class StashTab(ttk.Frame):
             self.btn_check.state(["!disabled"])
             self.report_issues(issues)
             if not issues:
-                uic.info("检查完成", "没有发现异常物品：所有物品的底材/品质/seed 重放校验都正常。")
+                uic.info("检查完成", "没有发现异常物品。")
                 return
             self._show_issue_dialog(issues)
 
@@ -313,8 +317,7 @@ class StashTab(ttk.Frame):
         top.title("储物箱异常物品")
         top.geometry("900x460")
         top.transient(self.winfo_toplevel())
-        ttk.Label(top, text="下列物品的底材/品质/seed 不合法，其中「致命」的会让游戏崩溃。"
-                            "勾选后点「删除选中」——删除前会自动备份，删完重开校验物品数。",
+        ttk.Label(top, text="下列物品不合法，标为「致命」的会让游戏崩溃。删除前会自动备份。",
                   wraplength=860, justify="left", style="Bad.TLabel").pack(
             anchor="w", padx=10, pady=(10, 4))
         frame = ttk.Frame(top)
@@ -374,7 +377,7 @@ class StashTab(ttk.Frame):
         if self.stash is None or not indices:
             return False
         if getattr(self.stash, "is_readonly", False):
-            uic.error("只读模式", "d1stash2 未就绪，不能删除物品。")
+            uic.error("只读模式", "当前不能删除物品。")
             return False
         if not self.app.require_game_closed():
             return False
@@ -420,7 +423,7 @@ class StashTab(ttk.Frame):
             uic.warn("提示", "请先打开储物箱。")
             return False
         if getattr(self.stash, "is_readonly", False):
-            uic.error("只读模式", "d1stash2 未就绪，不能保存储物箱。")
+            uic.error("只读模式", "当前不能保存储物箱。")
             return False
         if not self.app.require_game_closed():
             return False
@@ -470,7 +473,7 @@ class StashTab(ttk.Frame):
         if self.stash is None:
             return
         if getattr(self.stash, "is_readonly", False):
-            uic.error("只读模式", "d1stash2 未就绪，不能删除物品。")
+            uic.error("只读模式", "当前不能删除物品。")
             return
         sel = self.tree.selection()
         if not sel:

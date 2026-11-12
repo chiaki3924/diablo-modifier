@@ -10,6 +10,16 @@ from tkinter import messagebox, ttk
 
 HEADLESS = False
 
+# 暖白纸面、墨色正文、暗红主操作；灰色只用于辅助信息和分隔。
+BG = "#F5F2EC"
+SURFACE = "#FFFEFB"
+TEXT = "#27231F"
+MUTED = "#716A61"
+BORDER = "#D8D0C4"
+ACCENT = "#8A3033"
+ACCENT_ACTIVE = "#6E2427"
+SELECT = "#E9DED2"
+
 
 # ---------------------------------------------------------------- 消息
 
@@ -44,26 +54,15 @@ def confirm(title: str, msg: str) -> bool:
 def detail_warning(title: str, headline: str, message: str = "",
                    suggestions=(), detail: str = "", parent=None,
                    modal: bool = True):
-    """「原因 + 建议」警告框（Round 3 生成失败提示）。
+    """生成失败的提示框：一句结论 + 必要的正文，最多带两条建议。
 
-    比 ``messagebox.showwarning`` 更适合这里：标题/正文/建议分三段排版，
-    技术细节单独用灰色小字，用户一眼能看出「是游戏规则不允许，还是没搜到」。
-
+    ``detail`` 只为兼容旧调用保留，不再展示内部技术细节。
     ``modal=False`` 时立即返回 Toplevel（截图/自动化用）；``HEADLESS`` 时只打印。
     """
-    lines = []
-    if message:
-        lines.append(message)
-    if suggestions:
-        lines.append("")
-        lines.append("建议：")
-        lines.extend(f"  · {s}" for s in suggestions)
-    if detail:
-        lines.append("")
-        lines.append(f"（技术细节：{detail}）")
-    body = "\n".join(lines)
     if HEADLESS or parent is None:
-        print(f"[WARN] {title}: {headline}" + (f"\n{body}" if body else ""))
+        print(f"[WARN] {title}: {headline}")
+        if message:
+            print(message)
         return None
     top = tk.Toplevel(parent)
     top.title(title)
@@ -75,20 +74,15 @@ def detail_warning(title: str, headline: str, message: str = "",
     frame = ttk.Frame(top, padding=14)
     frame.pack(fill="both", expand=True)
     ttk.Label(frame, text=headline, style="Bad.TLabel",
-              font=("", 11, "bold"), wraplength=620, justify="left").pack(
-        anchor="w", fill="x")
+              wraplength=560, justify="left").pack(anchor="w", fill="x")
     if message:
-        ttk.Label(frame, text=message, wraplength=620, justify="left").pack(
+        ttk.Label(frame, text=message, wraplength=560, justify="left").pack(
             anchor="w", fill="x", pady=(8, 0))
-    if suggestions:
-        ttk.Label(frame, text="建议：", style="Sub.TLabel").pack(anchor="w", pady=(10, 2))
-        for s in suggestions:
-            ttk.Label(frame, text=f"· {s}", wraplength=600, justify="left").pack(
-                anchor="w", fill="x", padx=(10, 0))
-    if detail:
-        ttk.Label(frame, text=f"（技术细节：{detail}）", style="Hint.TLabel",
-                  wraplength=620, justify="left").pack(anchor="w", pady=(10, 0))
-    ttk.Button(frame, text="知道了", command=top.destroy).pack(anchor="e", pady=(12, 0))
+    tips = [str(s).strip() for s in suggestions if str(s).strip()][:2]
+    if tips:
+        ttk.Label(frame, text="\n".join("· " + s for s in tips), wraplength=540,
+                  justify="left").pack(anchor="w", fill="x", pady=(8, 0))
+    ttk.Button(frame, text="关闭", command=top.destroy).pack(anchor="e", pady=(12, 0))
     top.update_idletasks()
     try:
         top.geometry(f"+{parent.winfo_rootx() + 80}+{parent.winfo_rooty() + 80}")
@@ -126,6 +120,7 @@ def pick_font() -> str:
 
 
 def make_style(root: tk.Misc) -> ttk.Style:
+    """紧凑的浅色桌面工具样式，主操作与选中态使用同一暗红家族。"""
     style = ttk.Style(root)
     try:
         style.theme_use("clam")
@@ -133,20 +128,67 @@ def make_style(root: tk.Misc) -> ttk.Style:
         pass
     family = pick_font()
     base = 10
+    try:
+        root.configure(background=BG)
+    except tk.TclError:
+        pass
     root.option_add("*Font", (family, base))
-    style.configure(".", font=(family, base))
-    style.configure("TButton", padding=(8, 4))
-    style.configure("TNotebook.Tab", padding=(16, 6), font=(family, base + 1))
-    style.configure("TLabelframe.Label", font=(family, base + 1, "bold"))
-    style.configure("Title.TLabel", font=(family, base + 6, "bold"))
-    style.configure("Sub.TLabel", foreground="#555555")
-    style.configure("Ok.TLabel", foreground="#1a7f37")
-    style.configure("Bad.TLabel", foreground="#c62828")
-    style.configure("Hint.TLabel", foreground="#777777")
-    style.configure("TEntry", padding=3)
-    style.configure("Treeview", rowheight=24, font=(family, base))
-    style.configure("Treeview.Heading", font=(family, base, "bold"))
+    root.option_add("*Menu.background", SURFACE)
+    root.option_add("*Menu.foreground", TEXT)
+    root.option_add("*Menu.activeBackground", SELECT)
+    root.option_add("*Menu.activeForeground", TEXT)
+    style.configure(".", font=(family, base), background=BG, foreground=TEXT)
+    for name in ("TFrame", "TLabel", "TLabelframe", "TLabelframe.Label",
+                 "TRadiobutton", "TCheckbutton", "TNotebook"):
+        style.configure(name, background=BG, foreground=TEXT)
+    style.configure("TButton", padding=(11, 5), background=SURFACE,
+                    bordercolor=BORDER, focuscolor=ACCENT)
+    style.map("TButton", background=[("pressed", SELECT), ("active", "#F0E8DE")],
+              bordercolor=[("active", ACCENT)])
+    style.configure("Primary.TButton", padding=(14, 6), background=ACCENT,
+                    foreground="#FFFFFF", bordercolor=ACCENT)
+    style.map("Primary.TButton",
+              background=[("pressed", ACCENT_ACTIVE), ("active", ACCENT_ACTIVE)],
+              foreground=[("disabled", "#E8DDD8")])
+    style.configure("TNotebook", borderwidth=0, tabmargins=(0, 4, 0, 0))
+    style.configure("TNotebook.Tab", padding=(18, 7), background="#E9E3DA",
+                    foreground=MUTED)
+    style.map("TNotebook.Tab", background=[("selected", SURFACE), ("active", SELECT)],
+              foreground=[("selected", ACCENT), ("active", TEXT)])
+    style.configure("TLabelframe", padding=10, bordercolor=BORDER)
+    style.configure("TLabelframe.Label", font=(family, base, "bold"), foreground=TEXT)
+    style.configure("Title.TLabel", font=(family, base + 2, "bold"), foreground=TEXT)
+    style.configure("Sub.TLabel", foreground=MUTED)
+    style.configure("Ok.TLabel", foreground="#28734A")
+    style.configure("Bad.TLabel", foreground="#A1262B")
+    style.configure("Hint.TLabel", foreground=MUTED)
+    for name in ("TEntry", "TCombobox", "TSpinbox"):
+        style.configure(name, padding=4, fieldbackground=SURFACE,
+                        background=SURFACE, bordercolor=BORDER, arrowcolor=TEXT)
+        style.map(name, bordercolor=[("focus", ACCENT)],
+                  fieldbackground=[("readonly", SURFACE), ("disabled", BG)])
+    style.configure("Treeview", rowheight=26, font=(family, base),
+                    background=SURFACE, fieldbackground=SURFACE, bordercolor=BORDER)
+    style.map("Treeview", background=[("selected", ACCENT)],
+              foreground=[("selected", "#FFFFFF")])
+    style.configure("Treeview.Heading", font=(family, base, "bold"),
+                    background="#EEE8DF", foreground=TEXT, padding=(5, 6))
+    style.map("Treeview.Heading", background=[("active", SELECT)])
+    style.configure("TSeparator", background=BORDER)
     return style
+
+
+def more_button(master, items) -> ttk.Menubutton:
+    """功能区内的低频操作入口；items 中的 None 表示分隔线。"""
+    menu = tk.Menu(master, tearoff=0, background=SURFACE, foreground=TEXT,
+                   activebackground=SELECT, activeforeground=TEXT)
+    for item in items:
+        if item is None:
+            menu.add_separator()
+        else:
+            label, command = item
+            menu.add_command(label=label, command=command)
+    return ttk.Menubutton(master, text="更多", menu=menu)
 
 
 # ---------------------------------------------------------------- 日志
@@ -157,7 +199,7 @@ class LogPane(ttk.Frame):
     def __init__(self, master, height=5, **kw):
         super().__init__(master, **kw)
         self.text = tk.Text(self, height=height, wrap="word", state="disabled",
-                            relief="flat", background="#f7f7f7", foreground="#333333")
+                            relief="flat", background=SURFACE, foreground=TEXT)
         sb = ttk.Scrollbar(self, orient="vertical", command=self.text.yview)
         self.text.configure(yscrollcommand=sb.set)
         self.text.grid(row=0, column=0, sticky="nsew")

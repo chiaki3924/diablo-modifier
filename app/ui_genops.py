@@ -31,7 +31,7 @@ def write_to_stash(app, results, label: str = "装备", page: int | None = None)
         uic.warn("提示", "请先在「储物箱」页打开 stash.sv。")
         return False
     if getattr(tab.stash, "is_readonly", False):
-        uic.error("只读模式", "d1stash2 未就绪，不能写入储物箱。")
+        uic.error("只读模式", "当前不能写入储物箱。")
         return False
     if not app.require_game_closed():
         return False
@@ -119,22 +119,18 @@ def write_to_backpack(app, results) -> bool:
             if ci is None:
                 ci = (r.fields or {}).get("iCreateInfo", 0)
             if add_to_backpack(hero.sf, idx, seed, ci) is None:
-                raise ValueError(f"背包已满，或该底材（运行时 idx={idx}）没有可复用的"
-                                 " 368 字节模板；请改用「生成到储物箱」")
+                raise ValueError("背包已满，或该底材无法写入背包；请改用「生成到储物箱」")
             names.append(r.name_cn or r.name or (r.fields or {}).get("iName") or f"物品{idx}")
         msg = hero.save(clear_progress=False)
         after = int(HeroEdit(hero.path).pack.get("_pNumInv"))
     except Exception as exc:  # noqa: BLE001
-        uic.error("写入背包失败",
-                  f"{friendly_error(exc)}\n\n（背包可能已满；存档未被修改或已回滚）")
+        uic.error("写入背包失败", f"{friendly_error(exc)}\n\n存档未被修改。")
         app.log(f"写入背包失败：{exc}", "err")
         return False
     if after - before < len(results):
         app.log(f"背包写入不完整：{before} -> {after}（预期 +{len(results)}）", "warn")
         uic.warn("部分物品可能没进存档",
-                 f"背包物品数 {before} → {after}，预期 +{len(results)}。\n\n"
-                 "原因：该底材在背包里没有可复用的 368 字节模板，d1save 同步失败。\n"
-                 "建议改用「生成到储物箱」，那条路径是完整记录，最稳。")
+                 f"写入 {after - before} 件，预期 {len(results)} 件。请改用「生成到储物箱」。")
         return False
     app.log(f"已写入背包 {after - before} 件：{'、'.join(names)}（{msg}）", "ok")
     app.refresh_all(keep_char=True)

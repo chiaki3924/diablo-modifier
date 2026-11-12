@@ -24,124 +24,117 @@ class CharTab(ttk.Frame):
     # ------------------------------------------------------------ 构建
     def _build(self) -> None:
         self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
 
-        top = ttk.LabelFrame(self, text="存档文件", padding=8)
+        top = ttk.Frame(self, padding=(4, 2, 4, 10))
         top.grid(row=0, column=0, sticky="ew")
         top.columnconfigure(1, weight=1)
-        ttk.Label(top, text="角色存档：").grid(row=0, column=0, sticky="e")
+        ttk.Label(top, text="角色存档").grid(row=0, column=0, sticky="e")
         self.save_var = tk.StringVar()
         self.save_box = ttk.Combobox(top, textvariable=self.save_var, state="readonly")
-        self.save_box.grid(row=0, column=1, sticky="ew", padx=(0, 6))
+        self.save_box.grid(row=0, column=1, sticky="ew", padx=(8, 6))
         self.save_box.bind("<<ComboboxSelected>>", lambda e: self._on_pick())
-        ttk.Button(top, text="浏览其他文件…", command=self._browse).grid(row=0, column=2, padx=3)
-        ttk.Button(top, text="重新加载", command=self.reload).grid(row=0, column=3, padx=3)
+        ttk.Button(top, text="浏览…", command=self._browse).grid(row=0, column=2, padx=3)
+        ttk.Button(top, text="重载", command=self.reload).grid(row=0, column=3, padx=3)
 
         self.file_info = ttk.Label(top, text="", style="Hint.TLabel")
-        self.file_info.grid(row=1, column=0, columnspan=4, sticky="w", pady=(6, 0))
-
-        # ---------------- 基本信息（并进同一个框，省纵向空间） ----------------
-        self.lbl_name = ttk.Label(top, text="—", style="Title.TLabel")
-        self.lbl_name.grid(row=2, column=0, sticky="w", pady=(8, 0))
-        self.lbl_class = ttk.Label(top, text="", style="Sub.TLabel")
-        self.lbl_class.grid(row=2, column=1, sticky="w", padx=(16, 0), pady=(8, 0))
+        self.file_info.grid_remove()
+        head = ttk.Frame(top)
+        head.grid(row=1, column=0, columnspan=4, sticky="w", pady=(10, 0))
+        self.lbl_name = ttk.Label(head, text="—", style="Title.TLabel")
+        self.lbl_name.grid(row=0, column=0, sticky="w")
+        self.lbl_class = ttk.Label(head, text="", style="Sub.TLabel")
+        self.lbl_class.grid(row=0, column=1, sticky="w", padx=(12, 0), pady=(4, 0))
         self.lbl_extra = ttk.Label(top, text="", style="Sub.TLabel")
-        self.lbl_extra.grid(row=3, column=0, columnspan=4, sticky="w", pady=(2, 0))
-
+        self.lbl_extra.grid_remove()
         self.warn_bar = ttk.Label(top, text="", style="Bad.TLabel")
-        self.warn_bar.grid(row=4, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        self.warn_bar.grid(row=2, column=0, columnspan=4, sticky="w", pady=(6, 0))
 
-        # ---------------- 编辑区 ----------------
-        edit = ttk.LabelFrame(self, text="数值修改", padding=8)
-        edit.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        for c in range(8):
-            edit.columnconfigure(c, weight=0)
+        body = ttk.Frame(self)
+        body.grid(row=1, column=0, sticky="nsew")
+        body.columnconfigure(0, minsize=410)
+        body.columnconfigure(1, weight=1)
+        body.rowconfigure(0, weight=1)
 
-        # 等级 / 经验
-        ttk.Label(edit, text="等级").grid(row=0, column=0, sticky="e", padx=(0, 4), pady=3)
+        edit = ttk.LabelFrame(body, text="角色属性", padding=12)
+        edit.grid(row=0, column=0, sticky="new", padx=(0, 14))
+        for col in (1, 3):
+            edit.columnconfigure(col, weight=1)
+
+        ttk.Label(edit, text="等级").grid(row=0, column=0, sticky="e", padx=(0, 6), pady=4)
         self.var_level = tk.StringVar()
-        self.sp_level = ttk.Spinbox(edit, from_=1, to=50, textvariable=self.var_level, width=6)
-        self.sp_level.grid(row=0, column=1, sticky="w", padx=(0, 14))
-        ttk.Label(edit, text="经验").grid(row=0, column=2, sticky="e", padx=(0, 4))
+        self.sp_level = ttk.Spinbox(edit, from_=1, to=50, textvariable=self.var_level, width=7)
+        self.sp_level.grid(row=0, column=1, sticky="w", padx=(0, 16), pady=4)
+        ttk.Label(edit, text="经验").grid(row=0, column=2, sticky="e", padx=(0, 6))
         self.var_exp = tk.StringVar()
-        ttk.Entry(edit, textvariable=self.var_exp, width=14).grid(row=0, column=3, sticky="w")
-        self.lbl_exp_hint = ttk.Label(edit, text="", style="Hint.TLabel")
-        self.lbl_exp_hint.grid(row=0, column=4, columnspan=4, sticky="w", padx=(8, 0))
+        ttk.Entry(edit, textvariable=self.var_exp, width=15).grid(row=0, column=3, sticky="ew")
 
-        # 四维
         self.var_str, self.var_mag, self.var_dex, self.var_vit = (tk.StringVar() for _ in range(4))
-        for i, (label, var) in enumerate((("力量", self.var_str), ("魔法", self.var_mag),
-                                          ("敏捷", self.var_dex), ("体质", self.var_vit))):
-            ttk.Label(edit, text=label).grid(row=1, column=i * 2, sticky="e", padx=(0, 4), pady=3)
-            ttk.Spinbox(edit, from_=1, to=999, textvariable=var, width=6).grid(
-                row=1, column=i * 2 + 1, sticky="w", padx=(0, 14))
+        for row, pair in enumerate(((("力量", self.var_str), ("魔法", self.var_mag)),
+                                    (("敏捷", self.var_dex), ("体质", self.var_vit))), start=1):
+            for pair_index, (label, var) in enumerate(pair):
+                col = pair_index * 2
+                ttk.Label(edit, text=label).grid(row=row, column=col, sticky="e",
+                                                padx=(0, 6), pady=4)
+                ttk.Spinbox(edit, from_=1, to=999, textvariable=var, width=7).grid(
+                    row=row, column=col + 1, sticky="w", padx=(0, 16), pady=4)
 
-        ttk.Label(edit, text="剩余属性点").grid(row=2, column=0, sticky="e", padx=(0, 4), pady=3)
+        ttk.Label(edit, text="剩余属性点").grid(row=3, column=0, sticky="e", padx=(0, 6), pady=4)
         self.var_pts = tk.StringVar()
-        ttk.Spinbox(edit, from_=0, to=255, textvariable=self.var_pts, width=6).grid(
-            row=2, column=1, sticky="w", padx=(0, 14))
+        ttk.Spinbox(edit, from_=0, to=255, textvariable=self.var_pts, width=7).grid(
+            row=3, column=1, sticky="w", pady=4)
 
-        # 生命 / 法力
-        ttk.Label(edit, text="生命").grid(row=2, column=2, sticky="e", padx=(0, 4))
-        self.var_hp = tk.StringVar()
-        ttk.Entry(edit, textvariable=self.var_hp, width=6).grid(row=2, column=3, sticky="w")
-        ttk.Label(edit, text="/").grid(row=2, column=4)
-        self.var_hp_max = tk.StringVar()
-        ttk.Entry(edit, textvariable=self.var_hp_max, width=6).grid(row=2, column=5, sticky="w")
-        ttk.Label(edit, text="法力").grid(row=2, column=6, sticky="e", padx=(10, 4))
-        self.var_mp = tk.StringVar()
-        ttk.Entry(edit, textvariable=self.var_mp, width=6).grid(row=2, column=7, sticky="w")
-        ttk.Label(edit, text="/").grid(row=2, column=8)
-        self.var_mp_max = tk.StringVar()
-        ttk.Entry(edit, textvariable=self.var_mp_max, width=6).grid(row=2, column=9, sticky="w")
+        self.var_hp, self.var_hp_max = tk.StringVar(), tk.StringVar()
+        self.var_mp, self.var_mp_max = tk.StringVar(), tk.StringVar()
+        for row, label, current, maximum in ((4, "生命", self.var_hp, self.var_hp_max),
+                                             (5, "法力", self.var_mp, self.var_mp_max)):
+            ttk.Label(edit, text=label).grid(row=row, column=0, sticky="e", padx=(0, 6), pady=4)
+            ttk.Entry(edit, textvariable=current, width=8).grid(row=row, column=1, sticky="w")
+            ttk.Label(edit, text="/", style="Sub.TLabel").grid(row=row, column=2)
+            ttk.Entry(edit, textvariable=maximum, width=8).grid(row=row, column=3, sticky="w")
+        self.lbl_exp_hint = ttk.Label(edit, text="", style="Hint.TLabel", wraplength=360)
+        self.lbl_exp_hint.grid(row=6, column=0, columnspan=4, sticky="w", pady=(8, 0))
 
-        ttk.Label(edit, text="角色金币").grid(row=3, column=0, sticky="e", padx=(0, 4), pady=3)
-        self.var_gold = tk.StringVar()
-        ttk.Entry(edit, textvariable=self.var_gold, width=14).grid(
-            row=3, column=1, columnspan=2, sticky="w")
-        ttk.Label(edit, text="（建议 ≤ 50000；游戏内钱包有上限）", style="Hint.TLabel").grid(
-            row=3, column=3, columnspan=6, sticky="w", padx=(4, 0))
-
-        # ---------------- 法术 ----------------
-        spell = ttk.LabelFrame(self, text="法术", padding=8)
-        spell.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
-        self.rowconfigure(2, weight=1)
+        spell = ttk.Frame(body)
+        spell.grid(row=0, column=1, sticky="nsew")
         spell.columnconfigure(0, weight=1)
-        spell.rowconfigure(0, weight=1)
-
+        spell.rowconfigure(1, weight=1)
+        ttk.Label(spell, text="法术", style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        uic.more_button(spell, (
+            ("全部学会（15 级）", self._learn_all),
+            ("遗忘全部法术", self._forget_all),
+            None,
+            ("清理非原版法术", self._clear_non_original),
+        )).grid(row=0, column=1, sticky="e", pady=(0, 6))
         frame, self.spell_tree = uic.make_tree(
-            spell, ("spell", "level"), ("法术", "等级"), widths=(260, 60), height=9,
+            spell, ("spell", "level"), ("法术", "等级"), widths=(300, 70), height=16,
             stretch_col="spell")
-        frame.grid(row=0, column=0, columnspan=6, sticky="nsew")
+        frame.grid(row=1, column=0, columnspan=2, sticky="nsew")
         self.spell_tree.bind("<<TreeviewSelect>>", lambda e: self._on_spell_select())
 
-        ttk.Label(spell, text="选中法术等级").grid(row=1, column=0, sticky="e", pady=(6, 0))
+        controls = ttk.Frame(spell)
+        controls.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        ttk.Label(controls, text="选中法术等级").pack(side="left")
         self.var_spell_lv = tk.StringVar(value="1")
-        ttk.Spinbox(spell, from_=0, to=15, textvariable=self.var_spell_lv, width=6).grid(
-            row=1, column=1, sticky="w", padx=(4, 10), pady=(6, 0))
-        ttk.Button(spell, text="应用等级", command=self._apply_spell).grid(
-            row=1, column=2, sticky="w", padx=3, pady=(6, 0))
-        ttk.Button(spell, text="全部学会（15 级）", command=self._learn_all).grid(
-            row=1, column=3, sticky="w", padx=3, pady=(6, 0))
-        ttk.Button(spell, text="遗忘全部法术", command=self._forget_all).grid(
-            row=1, column=4, sticky="w", padx=3, pady=(6, 0))
-        ttk.Button(spell, text="清理非原版法术", command=self._clear_non_original).grid(
-            row=1, column=5, sticky="w", padx=(8, 3), pady=(6, 0))
-
-        self.lbl_spell_note = ttk.Label(
-            spell, style="Hint.TLabel", justify="left", wraplength=640,
-            text="只显示 1.5.5 原版可学习法术（已隐藏地狱火/职业自带/不可学习法术）")
-        self.lbl_spell_note.grid(row=2, column=0, columnspan=6, sticky="w", pady=(6, 0))
+        ttk.Spinbox(controls, from_=0, to=15, textvariable=self.var_spell_lv, width=6).pack(
+            side="left", padx=(6, 8))
+        ttk.Button(controls, text="应用等级", command=self._apply_spell).pack(side="left")
+        self.btn_clear_spells = ttk.Button(spell, text="清理非原版法术",
+                                           command=self._clear_non_original)
+        self.btn_clear_spells.grid_remove()
+        self.lbl_spell_note = ttk.Label(spell, style="Hint.TLabel", justify="left",
+                                        wraplength=640, text="只显示 1.5.5 原版可学习法术")
+        self.lbl_spell_note.grid_remove()
         self.lbl_spell_hidden = ttk.Label(spell, text="", style="Hint.TLabel")
-        self.lbl_spell_hidden.grid(row=3, column=0, columnspan=6, sticky="w")
+        self.lbl_spell_hidden.grid_remove()
 
-        # ---------------- 操作 ----------------
-        actions = ttk.Frame(self)
-        actions.grid(row=3, column=0, sticky="ew", pady=(8, 0))
-        self.btn_save = ttk.Button(actions, text="保存到存档", command=self.save)
-        self.btn_save.grid(row=0, column=0)
-        ttk.Button(actions, text="放弃修改（重载）", command=self.reload).grid(row=0, column=1, padx=8)
+        actions = ttk.Frame(self, padding=(4, 10, 4, 0))
+        actions.grid(row=2, column=0, sticky="ew")
         self.status = ttk.Label(actions, text="", style="Hint.TLabel")
-        self.status.grid(row=0, column=2, sticky="w", padx=8)
+        self.status.grid_remove()
+        self.btn_save = ttk.Button(actions, text="保存存档", style="Primary.TButton",
+                                   command=self.save)
+        self.btn_save.pack(side="right")
 
     # ------------------------------------------------------------ 存档列表
     def refresh_saves(self, select: Path | None = None) -> None:
@@ -213,7 +206,7 @@ class CharTab(ttk.Frame):
         import datetime
         mtime = datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
         self.file_info.configure(
-            text=f"{path}    {human_size(st.st_size)}    修改时间 {mtime}")
+            text=f"{path}")
         self._fill_form()
         self.status.configure(text="")
         self.app.log(f"已载入角色存档：{path.name}（{self.hero.summary()}）")
@@ -248,7 +241,6 @@ class CharTab(ttk.Frame):
         self.var_hp_max.set(str(hpmax))
         self.var_mp.set(str(mp))
         self.var_mp_max.set(str(mpmax))
-        self.var_gold.set(str(h.gold))
         need = h.next_level_exp()
         self.lbl_exp_hint.configure(
             text=f"下一级需要 {need:,} 经验" if need else "已满级")
@@ -264,7 +256,7 @@ class CharTab(ttk.Frame):
         mp, mpmax = h.mana
         hidden = len(h.hidden_spell_levels)
         self.lbl_extra.configure(
-            text=f"生命 {hp}/{hpmax}    法力 {mp}/{mpmax}    金币 {h.gold:,}    "
+            text=f"生命 {hp}/{hpmax}    法力 {mp}/{mpmax}    "
                  f"已学法术 {self._known_visible_count()}/{len(h.visible_spells)} 个"
                  + (f"（另 {hidden} 个隐藏）" if hidden else ""))
 
@@ -290,7 +282,7 @@ class CharTab(ttk.Frame):
             name = row.get("cn") or row.get("name") or f"法术{sid}"
             iid = str(sid)
             self.spell_tree.insert("", "end", iid=iid,
-                                   values=(f"{sid} · {name}", levels[sid] or ""))
+                                   values=(name, levels[sid] or ""))
             self._spell_rows.append(iid)
             self._row_spell[iid] = sid
         if keep:
@@ -301,14 +293,13 @@ class CharTab(ttk.Frame):
         hidden = self.hero.hidden_spell_levels
         if hidden:
             self.lbl_spell_hidden.configure(
-                text=f"存档里另隐藏 {len(hidden)} 个非原版/职业法术等级，未改动")
+                text=f"隐藏 {len(hidden)} 个法术等级，未改动")
         else:
-            self.lbl_spell_hidden.configure(
-                text="存档里没有其它隐藏法术等级（地狱火/职业自带）")
+            self.lbl_spell_hidden.configure(text="没有其它法术等级")
 
     def _update_banner(self) -> None:
         if self.app.game_running:
-            self.warn_bar.configure(text="⚠ 游戏正在运行：请先退出游戏，否则保存可能被游戏覆盖。")
+            self.warn_bar.configure(text="游戏运行中，保存会被覆盖。请先退出游戏。")
         else:
             self.warn_bar.configure(text="")
 
@@ -436,7 +427,6 @@ class CharTab(ttk.Frame):
             hpmax = self._int(self.var_hp_max, "生命上限", 1, 99999)
             mp = self._int(self.var_mp, "法力", 0, 99999)
             mpmax = self._int(self.var_mp_max, "法力上限", 0, 99999)
-            gold = self._int(self.var_gold, "金币", 0, 0x7FFFFFFF)
         except ValueError as exc:
             uic.warn("输入有误", str(exc))
             return False
@@ -452,7 +442,6 @@ class CharTab(ttk.Frame):
             self.hero.set_stats(str_=str_, mag=mag, dex=dex, vit=vit)
             self.hero.set_stat_points(pts)
             self.hero.set_exp(exp)
-            gold_actual = self.hero.set_gold(gold)
             self.hero.set_pools(hp=hp, max_hp=hpmax, mana=mp, max_mana=mpmax)
             msg = self.hero.save(clear_progress=False)
         except HeroError as exc:
@@ -467,8 +456,6 @@ class CharTab(ttk.Frame):
             return False
 
         self.status.configure(text=f"已保存 {timestamp()}")
-        if gold_actual != gold:
-            self.app.log(f"金币受背包空间限制：请求 {gold:,}，实际写入 {gold_actual:,}", "warn")
         self.app.log(f"角色存档已保存：{self.hero.path.name}（{msg}）", "ok")
         self.app.refresh_all(keep_char=True)
         return True

@@ -55,10 +55,10 @@ class UniqueTab(ttk.Frame):
 
         left = ttk.Frame(self)
         left.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
-        left.rowconfigure(2, weight=1)
+        left.rowconfigure(1, weight=1)
         left.columnconfigure(0, weight=1)
 
-        flt = ttk.LabelFrame(left, text="暗金图鉴（词条固定，无需选词缀）", padding=6)
+        flt = ttk.LabelFrame(left, text="暗金图鉴")
         flt.grid(row=0, column=0, sticky="ew")
         flt.columnconfigure(1, weight=1)
         ttk.Label(flt, text="搜索").grid(row=0, column=0, sticky="e")
@@ -76,25 +76,26 @@ class UniqueTab(ttk.Frame):
         ttk.Spinbox(flt, from_=1, to=50, textvariable=self.var_minlvl, width=4,
                     command=self._refresh_list).grid(row=0, column=5, sticky="w", padx=(4, 0))
 
-        self.lbl_count = ttk.Label(left, text="", style="Hint.TLabel")
-        self.lbl_count.grid(row=1, column=0, sticky="w", pady=(4, 2))
+        self.lbl_count = ttk.Label(flt, text="", style="Hint.TLabel")
+        self.lbl_count.grid(row=0, column=6, sticky="w", padx=(10, 0))
 
         frame, self.tree = uic.make_tree(
             left, tuple(c[0] for c in COLUMNS), tuple(c[1] for c in COLUMNS),
-            widths=tuple(c[2] for c in COLUMNS), height=18, stretch_col="name")
-        frame.grid(row=2, column=0, sticky="nsew")
+            widths=tuple(c[2] for c in COLUMNS), height=20, stretch_col="name")
+        frame.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
         for col, _text, _w, anchor, stretch in COLUMNS:
             self.tree.column(col, anchor=anchor, stretch=stretch)
             self.tree.heading(col, text=_text, command=lambda c=col: self.sort_by(c))
         self.tree.bind("<<TreeviewSelect>>", lambda ev: self._on_select())
 
         # ---------------- 右侧明细 ----------------
-        right = ttk.LabelFrame(self, text="属性明细 / 生成", padding=8)
+        right = ttk.LabelFrame(self, text="属性与写入", padding=10)
         right.grid(row=1, column=1, sticky="nsew")
         right.rowconfigure(0, weight=1)
         right.columnconfigure(0, weight=1)
-        self.preview = tk.Text(right, wrap="word", width=52, height=18, state="disabled",
-                               relief="flat", background="#fbfbfb")
+        self.preview = tk.Text(right, wrap="word", width=52, height=20, state="disabled",
+                               relief="flat", background=uic.SURFACE, foreground=uic.TEXT,
+                               padx=8, pady=8)
         psb = ttk.Scrollbar(right, orient="vertical", command=self.preview.yview)
         self.preview.configure(yscrollcommand=psb.set)
         self.preview.grid(row=0, column=0, sticky="nsew")
@@ -103,7 +104,7 @@ class UniqueTab(ttk.Frame):
         opts = ttk.Frame(right)
         opts.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         self._opts = opts
-        ttk.Label(opts, text="物品等级 ilvl").grid(row=0, column=0, sticky="e")
+        ttk.Label(opts, text="物品等级").grid(row=0, column=0, sticky="e")
         self.var_ilvl = tk.StringVar(value="20")
         self.sp_ilvl = ttk.Spinbox(opts, from_=1, to=MAX_DROP_ILVL,
                                    textvariable=self.var_ilvl, width=5)
@@ -111,7 +112,7 @@ class UniqueTab(ttk.Frame):
         # Round 5/6：默认勾选 = 保证生成物可丢地上（ilvl<=34）
         self.var_drop_safe = tk.BooleanVar(value=True)
         self.chk_drop_safe = ttk.Checkbutton(
-            opts, text="可丢地上（≤34）", variable=self.var_drop_safe,
+            opts, text="可丢地上", variable=self.var_drop_safe,
             command=self._on_drop_safe)
         self.chk_drop_safe.grid(row=0, column=2, sticky="w", padx=(0, 10))
         ttk.Label(opts, text="数量").grid(row=0, column=3, sticky="e")
@@ -123,23 +124,22 @@ class UniqueTab(ttk.Frame):
         self.sp_page = ttk.Spinbox(opts, from_=1, to=100, width=5,
                                    textvariable=self.var_page)
         self.sp_page.grid(row=1, column=1, sticky="w", padx=(4, 12), pady=(6, 0))
-        ttk.Label(opts, text="1 = 第 1 页；留空 = 自动空位（只对「生成到储物箱」有效）",
-                  style="Hint.TLabel").grid(row=1, column=2, columnspan=3, sticky="w",
-                                            pady=(6, 0))
         self.lbl_drop_hint = ttk.Label(opts, text="", style="Hint.TLabel",
                                        wraplength=470, justify="left")
         self.lbl_drop_hint.grid(row=2, column=0, columnspan=5, sticky="w",
                                 pady=(4, 0))
+        self.lbl_drop_hint.grid_remove()
         self.var_drop_safe.trace_add("write", lambda *a: self._on_drop_safe())
 
         btns = ttk.Frame(right)
         btns.grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        self.btn_stash = ttk.Button(btns, text="生成到储物箱", command=self.gen_to_stash)
+        self.btn_stash = ttk.Button(btns, text="生成到储物箱", style="Primary.TButton",
+                                    command=self.gen_to_stash)
         self.btn_stash.grid(row=0, column=0, padx=(0, 6))
         self.btn_bag = ttk.Button(btns, text="生成到角色背包", command=self.gen_to_backpack)
         self.btn_bag.grid(row=0, column=1, padx=(0, 6))
         self.btn_cancel = ttk.Button(btns, text="取消", command=self._cancel)
-        self.btn_cancel.grid(row=0, column=2)
+        self.btn_cancel.grid_remove()
         self.btn_cancel.state(["disabled"])
 
         self.valid_lbl = ttk.Label(right, text="", wraplength=470, justify="left")
@@ -167,12 +167,7 @@ class UniqueTab(ttk.Frame):
         bases = sorted({u.base_cn for u in self.items if u.base_cn})
         self.cb_base["values"] = ["全部"] + bases
         self.cb_base.set("全部")
-        hidden = len(self.gen.uniques(include_unavailable=True)) - len(self.items)
-        text = f"共 {len(self.items)} 件可用暗金（非 Hellfire）"
-        if hidden:
-            text += f"；另有 {hidden} 件（如 Bovine Plate）底材在此版本不可用，已隐藏"
-        self.banner.configure(text=text + "。点左侧任意一件 → 右侧显示固定词条 → 一键生成。",
-                              style="Hint.TLabel")
+        self.banner.grid_remove()
         self._refresh_list()
 
     def _refresh_list(self) -> None:
@@ -204,14 +199,7 @@ class UniqueTab(ttk.Frame):
                 i + 1, u.cn, u.base_cn, u.min_level, f"{u.value:,}"))
             self._row_map[row] = u
         self._update_headings()
-        total = f"显示 {len(items)} / {len(self.items)} 件"
-        if self._sort_col:
-            arrow = "▼ 降序" if self._sort_rev else "▲ 升序"
-            name = dict((c[0], c[1]) for c in COLUMNS).get(self._sort_col, self._sort_col)
-            total += f"（按「{name}」{arrow}；再次点表头反转）"
-        else:
-            total += "（点表头排序）"
-        self.lbl_count.configure(text=total)
+        self.lbl_count.configure(text=f"{len(items)} 件")
         target = None
         if keep_uid is not None:
             for row, u in self._row_map.items():
@@ -357,10 +345,10 @@ class UniqueTab(ttk.Frame):
                 text=f"勾选：ilvl 1~{MAX_DROP_ILVL}，生成物可丢地上/捡起",
                 style="Hint.TLabel" if drop_ok else "Bad.TLabel")
         dropable = "" if u.base_available else "（底材在 1.5.5 非 Hellfire 不可用）"
-        base_note = "（任务暗金底材）" if u.base_unique_only else "（普通底材）"
+        base_note = ""
         lines = [
-            f"{u.cn}（{u.en}）",
-            f"底材：{u.base_cn or '?'}（{u.base_en or '?'}，idx={u.base_idx}）{base_note}{dropable}",
+            u.cn,
+            f"底材：{u.base_cn or '?'}{dropable}",
             f"需求物品等级：{u.min_level}    价值：{u.value:,}",
             "",
             "固定词条：",
@@ -370,29 +358,11 @@ class UniqueTab(ttk.Frame):
             lines.append("  （无，或该暗金只有外观/底材效果）")
         for _, text in rows:
             lines.append(f"  · {text}")
-        if u.note:
-            lines.append("")
-            lines.append(f"说明：{u.note}")
-        lines.append("")
-        if drop_ok:
-            lines.append(f"可丢地上：是（ilvl {ilvl} ≤ {MAX_DROP_ILVL}）")
-        else:
-            lines.append(f"可丢地上：否（ilvl {ilvl} > {MAX_DROP_ILVL}，只能放储物箱）")
-        if u.min_level > MAX_DROP_ILVL:
-            lines.append(f"  ⚠ 该暗金需要 ilvl {int(u.min_level)}（>{MAX_DROP_ILVL}），"
-                         "只能放储物箱，不能丢地上")
-        elif not drop_ok:
-            lines.append(f"  ⚠ ilvl>{MAX_DROP_ILVL} 只能放储物箱；"
-                         "丢地上会提示「无效的数据包」并消失")
-        lines.append("")
-        lines.append("暗金不需要选前缀/后缀/数值：词条由 unique_id 决定，"
-                     "程序会按游戏规则重建（d1itemgen.validate 校验）。")
+        if not drop_ok:
+            lines.extend(("", "只能放储物箱，不能丢地上。"))
         uic.set_text(self.preview, "\n".join(lines))
         if not drop_ok:
-            self.valid_lbl.configure(
-                text=(f"⚠ ilvl>{MAX_DROP_ILVL}：只能放储物箱，"
-                      "丢地上会提示「无效的数据包」并消失"),
-                style="Bad.TLabel")
+            self.valid_lbl.configure(text="只能放储物箱", style="Bad.TLabel")
         else:
             self.valid_lbl.configure(text="", style="Sub.TLabel")
         ok = u.base_available and self.gen.ready
@@ -509,7 +479,7 @@ class UniqueTab(ttk.Frame):
             bad = [v for r in results for v in (r.validation or [])]
             if bad:
                 chk = classify_validation(bad)
-                self.valid_lbl.configure(text=f"✘ {chk.title}", style="Bad.TLabel")
+                self.valid_lbl.configure(text=chk.title, style="Bad.TLabel")
                 uic.set_text(self.preview, "【合法性校验未通过】\n\n" + chk.text(),
                              color="#c62828")
                 self.progress.configure(text="生成结果未通过校验，未写入。")
@@ -518,7 +488,7 @@ class UniqueTab(ttk.Frame):
                                    chk.suggestions, chk.detail, parent=self, modal=True)
                 return
             self.valid_lbl.configure(
-                text=f"✔ 校验通过：{res.name_cn or u.cn}（Uid={u.uid}，seed={res.seed}）",
+                text=f"校验通过：{res.name_cn or u.cn}",
                 style="Ok.TLabel")
             self.progress.configure(text=f"已生成 {len(results)} 件，正在写入…")
             if target == "stash":
@@ -532,7 +502,7 @@ class UniqueTab(ttk.Frame):
             chk = classify_error(exc)
             self.progress.configure(text="生成失败。")
             self.app.log(f"暗金生成失败：{exc}", "err")
-            self.valid_lbl.configure(text=f"✘ {chk.title}", style="Bad.TLabel")
+            self.valid_lbl.configure(text=chk.title, style="Bad.TLabel")
             uic.set_text(self.preview, "【无法生成】\n\n" + chk.text(), color="#c62828")
             uic.detail_warning("无法生成该暗金", chk.title, chk.message, chk.suggestions,
                                chk.detail, parent=self, modal=True)

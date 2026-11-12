@@ -56,15 +56,6 @@ ITYPE_CN = {
     "Ring": "戒指", "Amulet": "护身符",
 }
 
-#: ilvl 解释（合同 3.4，压缩成 3 行；Round 6 把丢地上上限提高到 34）
-ILVL_HINT = (
-    "ilvl 是「生成等级」（不是角色等级）：词缀 min_level 必须落在 [ilvl//2, ilvl] 内，"
-    "所以每条词缀都有合法区间，太低/太高都出不了；需求等级（力量/敏捷/魔法）与此无关。\n"
-    "ilvl 平时可选 1~50；勾选「可丢地上」时上限是 34（34 可获得绿宝石（全抗 41~50），"
-    "所以推荐 34）。ilvl 31~34 会自动改走「暗金怪掉落路线」"
-    "（记录等级 -4 + CF_UPER15），词缀窗口仍是 [ilvl//2, ilvl]。\n"
-    "ilvl 35~50 只能放储物箱：丢地上会提示「无效的数据包」并消失。"
-)
 
 #: 丢地上合法（IsDungeonItemValid）的最高 ilvl（Round 6；运行时优先用 gen.max_drop_ilvl）
 MAX_DROP_ILVL = 34
@@ -104,9 +95,10 @@ class GenTab(ttk.Frame):
         self.columnconfigure(1, weight=1)
         self.rowconfigure(1, weight=1)
 
-        self.banner = ttk.Label(self, text=self.gen.status_text(), style="Bad.TLabel",
+        self.banner = ttk.Label(self, text="", style="Bad.TLabel",
                                 wraplength=1080, justify="left")
         self.banner.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        self.banner.grid_remove()
 
         left = self._build_left()
 
@@ -114,8 +106,8 @@ class GenTab(ttk.Frame):
         self._build_affix(left)         # 2. 词缀（全部显示）
         self._build_staff(left)         # 3. 法杖
         self._build_base_stats(left)    # 4. 基础属性
-        self._build_gen_bar()           # 固定栏：ilvl/推荐/seed/页码/按钮/进度
         self._build_preview(right_col=1)
+        self._build_gen_bar()           # 预览下方：等级/数量/页码/生成按钮
         self._bind_left_wheel()
 
         self._bind_preview_traces()
@@ -127,18 +119,7 @@ class GenTab(ttk.Frame):
 
     @staticmethod
     def _help_text() -> str:
-        return (
-            "在左侧选择底材 → 词缀/满值/法杖选项 → 右侧立刻显示「这件装备会是什么样」，"
-            "不用先生成。\n\n"
-            "· 前缀/后缀下拉是「该底材的全部适用词缀」，末尾〔ilvl L~H〕是它能出现的物品等级区间；\n"
-            "· ilvl 只影响合法性：生成前会用红字写明「后缀需要 ilvl≥21」这类原因，"
-            "绿字代表规则检查通过；\n"
-            "· 点「用推荐 ilvl」可把 ilvl 调到合法值（当前值本来就合法时保持不动）；\n"
-            "· 「满值」把护甲/耐久直接写成最大值：只对「生成到储物箱」有效，"
-            "写背包会被游戏按 seed 重建为随机值；\n"
-            "· 法杖可以选「属性法杖」或「法术法杖（带充能）」；法术法杖只有前缀、没有后缀；\n"
-            "· 「写入页码」填 1 就是储物箱第 1 页，留空 = 自动找空位/新建页。"
-        )
+        return "先在左侧选择底材，再按需调整词缀。\n\n右侧会实时预览，确认后即可写入储物箱或角色背包。"
 
     # ------------------------------------------------------------ 左列容器（可滚动）
     def _canvas_bg(self) -> str:
@@ -166,10 +147,6 @@ class GenTab(ttk.Frame):
         self._left_sb.grid(row=0, column=1, sticky="ns")
         self._left_sb.grid_remove()
         self._left_canvas.configure(yscrollcommand=self._left_sb.set)
-        # 「生成」按钮/ilvl/页码固定在左列底部：左侧内容再长也不会把它们挤出窗口
-        self._action_bar = ttk.Frame(box, padding=(2, 2))
-        self._action_bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
-        self._action_bar.columnconfigure(0, weight=1)
         left = ttk.Frame(self._left_canvas)
         left.columnconfigure(0, weight=1)
         self._left = left
@@ -251,7 +228,7 @@ class GenTab(ttk.Frame):
 
     # ------------------------------------------------------------ 1. 底材
     def _build_base(self, left) -> None:
-        pick = ttk.LabelFrame(left, text="1. 选择底材（只列可生成的普通装备）", padding=4)
+        pick = ttk.LabelFrame(left, text="底材")
         pick.grid(row=0, column=0, sticky="ew")
         pick.columnconfigure(1, weight=1)
         ttk.Label(pick, text="类型").grid(row=0, column=0, sticky="e")
@@ -272,8 +249,10 @@ class GenTab(ttk.Frame):
         list_frame.grid(row=1, column=0, columnspan=5, sticky="nsew", pady=(6, 0))
         list_frame.rowconfigure(0, weight=1)
         list_frame.columnconfigure(0, weight=1)
-        self.listbox = tk.Listbox(list_frame, height=5, exportselection=False,
-                                  activestyle="dotbox", width=40)
+        self.listbox = tk.Listbox(list_frame, height=17, exportselection=False,
+                                  activestyle="dotbox", width=40,
+                                  background=uic.SURFACE, foreground=uic.TEXT,
+                                  selectbackground=uic.ACCENT, selectforeground="#FFFFFF")
         sb = ttk.Scrollbar(list_frame, orient="vertical", command=self.listbox.yview)
         self.listbox.configure(yscrollcommand=sb.set)
         self.listbox.grid(row=0, column=0, sticky="nsew")
@@ -282,8 +261,7 @@ class GenTab(ttk.Frame):
 
     # --------------------------------------------------- 2. 词缀（全部显示）
     def _build_affix(self, left) -> None:
-        opts = ttk.LabelFrame(left, text="2. 词缀（全部显示，末尾〔ilvl L~H〕= 合法物品等级区间）",
-                              padding=4)
+        opts = ttk.LabelFrame(left, text="词缀")
         opts.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         opts.columnconfigure(3, weight=1)
         self._affix_opts = opts
@@ -304,10 +282,11 @@ class GenTab(ttk.Frame):
         ttk.Label(opts, text="前缀").grid(row=1, column=0, sticky="e", pady=(6, 0))
         self.var_pre = tk.StringVar(value=RANDOM_LABEL)
         self.cb_pre = ttk.Combobox(opts, textvariable=self.var_pre, state="readonly",
-                                   width=46, height=22)
-        self.cb_pre.grid(row=1, column=1, columnspan=3, sticky="w", padx=(4, 0),
+                                   width=60, height=22)
+        self.cb_pre.grid(row=1, column=1, columnspan=3, sticky="ew", padx=(4, 0),
                          pady=(6, 0))
         self.cb_pre.bind("<<ComboboxSelected>>", lambda e: self._on_affix_pick("pre"))
+        self.cb_pre.configure(postcommand=lambda: self._fit_affix_popup(self.cb_pre))
         self._build_value_row(opts, "pre", row=2)
         self.lbl_pre_desc = ttk.Label(opts, text="", style="Hint.TLabel", wraplength=560,
                                       justify="left")
@@ -317,9 +296,10 @@ class GenTab(ttk.Frame):
         ttk.Label(opts, text="后缀").grid(row=4, column=0, sticky="e", pady=(6, 0))
         self.var_suf = tk.StringVar(value=RANDOM_LABEL)
         self.cb_suf = ttk.Combobox(opts, textvariable=self.var_suf, state="readonly",
-                                   width=46, height=22)
-        self.cb_suf.grid(row=4, column=1, columnspan=3, sticky="w", padx=(4, 0), pady=(6, 0))
+                                   width=60, height=22)
+        self.cb_suf.grid(row=4, column=1, columnspan=3, sticky="ew", padx=(4, 0), pady=(6, 0))
         self.cb_suf.bind("<<ComboboxSelected>>", lambda e: self._on_affix_pick("suf"))
+        self.cb_suf.configure(postcommand=lambda: self._fit_affix_popup(self.cb_suf))
         self._build_value_row(opts, "suf", row=5)
         self.lbl_suf_desc = ttk.Label(opts, text="", style="Hint.TLabel", wraplength=560,
                                       justify="left")
@@ -333,6 +313,17 @@ class GenTab(ttk.Frame):
                                         wraplength=560, justify="left")
         self.lbl_value_hint.grid(row=8, column=0, columnspan=4, sticky="w", pady=(2, 0))
         self.lbl_value_hint.grid_remove()
+
+    def _fit_affix_popup(self, combo: ttk.Combobox) -> None:
+        """弹层独立加宽：保留表单紧凑，同时完整展示长词缀说明。"""
+        try:
+            values = [str(v) for v in combo.cget("values")]
+            longest = max((len(v) for v in values), default=60)
+            width = max(60, min(120, longest + 2))
+            popdown = combo.tk.call("ttk::combobox::PopdownWindow", combo)
+            combo.nametowidget(f"{popdown}.f.l").configure(width=width)
+        except (tk.TclError, AttributeError):
+            pass
 
     def _build_value_row(self, parent, which: str, row: int):
         """一个词缀的数值行：范围 + 槽 0 + 槽 1（两值时）+ 容差。
@@ -384,7 +375,7 @@ class GenTab(ttk.Frame):
 
     # ------------------------------------------------------------ 3. 法杖
     def _build_staff(self, left) -> None:
-        box = ttk.LabelFrame(left, text="3. 法杖（仅法杖底材可用）", padding=4)
+        box = ttk.LabelFrame(left, text="法杖")
         box.grid(row=2, column=0, sticky="ew", pady=(6, 0))
         box.columnconfigure(1, weight=1)
         self.staff_box = box
@@ -425,7 +416,7 @@ class GenTab(ttk.Frame):
 
     # ------------------------------------------------------------ 4. 基础属性
     def _build_base_stats(self, left) -> None:
-        box = ttk.LabelFrame(left, text="4. 基础属性（护甲 / 耐久）", padding=4)
+        box = ttk.LabelFrame(left, text="基础属性")
         box.grid(row=3, column=0, sticky="ew", pady=(6, 0))
         box.columnconfigure(1, weight=1)
         ttk.Label(box, text="取值").grid(row=0, column=0, sticky="e")
@@ -441,14 +432,6 @@ class GenTab(ttk.Frame):
         self.lbl_base_stats_hint.grid(row=1, column=0, columnspan=2, sticky="w",
                                       pady=(3, 0))
 
-    # ------------------------------------------------------------ 5. 说明（ilvl）
-    #: ilvl 解释放在右侧预览下方：左列空间不够（5 个分区 + 固定栏），
-    #: 而右列预览下方正好有空白，滚动左列时也能一直看到。
-    def _build_ilvl_hint(self, right) -> None:
-        self.lbl_ilvl_hint = ttk.Label(right, text=ILVL_HINT, style="Hint.TLabel",
-                                       wraplength=470, justify="left")
-        self.lbl_ilvl_hint.grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
-
     def _build_gen_bar(self) -> None:
         """左列底部固定栏：ilvl / 推荐 / seed / 页码 / 生成按钮 / 进度。
 
@@ -461,7 +444,7 @@ class GenTab(ttk.Frame):
         row0 = ttk.Frame(bar)
         row0.grid(row=0, column=0, sticky="w")
         self._gen_row0 = row0
-        ttk.Label(row0, text="物品等级 ilvl").grid(row=0, column=0, sticky="e")
+        ttk.Label(row0, text="物品等级").grid(row=0, column=0, sticky="e")
         self.var_ilvl = tk.StringVar(value="20")
         self.sp_ilvl = ttk.Spinbox(row0, from_=1, to=self._drop_cap(),
                                    textvariable=self.var_ilvl, width=5)
@@ -469,29 +452,31 @@ class GenTab(ttk.Frame):
         self.sp_ilvl.bind("<<Increment>>", lambda e: self._schedule_refresh())
         self.sp_ilvl.bind("<<Decrement>>", lambda e: self._schedule_refresh())
         # Round 6：默认勾选 = 保证生成物可丢地上（ilvl<=34；31~34 走暗金怪路线，
-        # 细节写在右侧 ILVL_HINT 里，勾选框保持短文本以免固定栏超出 640px）
+        # 勾选框保持短文本，避免固定操作栏超出宽度）
         self.var_drop_safe = tk.BooleanVar(value=True)
         cap = self._drop_cap()
-        self.chk_drop_safe = ttk.Checkbutton(row0, text=f"可丢地上（≤{cap}）",
+        self.chk_drop_safe = ttk.Checkbutton(row0, text="可丢地上",
                                              variable=self.var_drop_safe,
                                              command=self._on_drop_safe)
         self.chk_drop_safe.grid(row=0, column=2, padx=(0, 8))
-        self.btn_recommend = ttk.Button(row0, text="用推荐 ilvl",
+        self.btn_recommend = ttk.Button(row0, text="使用推荐等级",
                                         command=self._on_recommend)
-        self.btn_recommend.grid(row=0, column=3, padx=(0, 8))
+        self.btn_recommend.grid_remove()
         self.lbl_recommend = ttk.Label(row0, text="", style="Hint.TLabel", width=18,
                                        anchor="w")
-        self.lbl_recommend.grid(row=0, column=4, sticky="w")
-        self.lbl_recommend.configure(text="推荐 —")
+        self.lbl_recommend.grid_remove()
         self.btn_recommend.state(["disabled"])
 
-        # row1：seed / 数量 / 写入页码
+        # row1：数量 / 写入页码；种子默认收进高级选项
         row1 = ttk.Frame(bar)
         row1.grid(row=1, column=0, sticky="w", pady=(4, 0))
-        ttk.Label(row1, text="seed（可空）").grid(row=0, column=0, sticky="e")
+        self.lbl_seed = ttk.Label(row1, text="种子")
+        self.lbl_seed.grid(row=0, column=0, sticky="e")
         self.var_seed = tk.StringVar()
-        ttk.Entry(row1, textvariable=self.var_seed, width=10).grid(
-            row=0, column=1, sticky="w", padx=(4, 10))
+        self.ent_seed = ttk.Entry(row1, textvariable=self.var_seed, width=10)
+        self.ent_seed.grid(row=0, column=1, sticky="w", padx=(4, 10))
+        self._seed_visible = True
+        self._toggle_seed()  # 默认隐藏
         ttk.Label(row1, text="数量").grid(row=0, column=2, sticky="e")
         self.var_count = tk.StringVar(value="1")
         ttk.Spinbox(row1, from_=1, to=10, textvariable=self.var_count, width=4).grid(
@@ -501,21 +486,23 @@ class GenTab(ttk.Frame):
         self.sp_page = ttk.Spinbox(row1, from_=1, to=100, width=5,
                                    textvariable=self.var_page)
         self.sp_page.grid(row=0, column=5, padx=(4, 6))
-        ttk.Label(row1, text="（1 = 第 1 页；留空 = 自动）",
-                  style="Hint.TLabel").grid(row=0, column=6, sticky="w")
 
         # row2：生成按钮
         row2 = ttk.Frame(bar)
         row2.grid(row=2, column=0, sticky="w", pady=(4, 0))
-        self.btn_stash = ttk.Button(row2, text="生成到储物箱", command=self.gen_to_stash)
+        self.btn_stash = ttk.Button(row2, text="生成到储物箱", style="Primary.TButton",
+                                    command=self.gen_to_stash)
         self.btn_stash.grid(row=0, column=0, padx=(0, 6))
-        self.btn_bag = ttk.Button(row2, text="生成到角色背包", command=self.gen_to_backpack)
+        self.btn_bag = ttk.Button(row2, text="放入角色背包", command=self.gen_to_backpack)
         self.btn_bag.grid(row=0, column=1, padx=(0, 6))
-        self.btn_simple = ttk.Button(row2, text="简易随机→背包",
-                                     command=self.simple_to_backpack)
-        self.btn_simple.grid(row=0, column=2, padx=(0, 6))
+        uic.more_button(row2, (
+            ("使用推荐等级", self._on_recommend),
+            ("显示或隐藏种子", self._toggle_seed),
+            None,
+            ("简易随机到背包", self.simple_to_backpack),
+        )).grid(row=0, column=2)
         self.btn_cancel = ttk.Button(row2, text="取消", command=self._cancel)
-        self.btn_cancel.grid(row=0, column=3, padx=(0, 6))
+        self.btn_cancel.grid_remove()
         self.btn_cancel.state(["disabled"])
 
         # row3：进度 / 提示（空时收起，把高度还给左列内容）
@@ -524,6 +511,15 @@ class GenTab(ttk.Frame):
         self.progress.grid(row=3, column=0, sticky="w", pady=(3, 0))
         self._set_progress("")
         self._on_drop_safe()        # 初始化 Spinbox 的上限（勾选=34）
+
+    def _toggle_seed(self) -> None:
+        self._seed_visible = not self._seed_visible
+        if self._seed_visible:
+            self.lbl_seed.grid()
+            self.ent_seed.grid()
+        else:
+            self.lbl_seed.grid_remove()
+            self.ent_seed.grid_remove()
 
     def _set_progress(self, text: str) -> None:
         """写进度文本；空文本时把这一行收起（固定栏更矮，左列能多看一截）。"""
@@ -539,22 +535,25 @@ class GenTab(ttk.Frame):
 
     # ------------------------------------------------------------ 右侧预览
     def _build_preview(self, right_col: int) -> None:
-        right = ttk.LabelFrame(self, text="实时预览 / 合法性校验（未生成时也显示）", padding=8)
+        right = ttk.LabelFrame(self, text="预览与写入", padding=10)
         right.grid(row=1, column=right_col, sticky="nsew")
         right.rowconfigure(0, weight=1)
         right.columnconfigure(0, weight=1)
-        self.preview = tk.Text(right, wrap="word", width=52, height=30, state="disabled",
-                               relief="flat", background="#fbfbfb")
+        self.preview = tk.Text(right, wrap="word", width=52, height=22, state="disabled",
+                               relief="flat", background=uic.SURFACE, foreground=uic.TEXT,
+                               padx=8, pady=8)
         psb = ttk.Scrollbar(right, orient="vertical", command=self.preview.yview)
         self.preview.configure(yscrollcommand=psb.set)
         self.preview.grid(row=0, column=0, sticky="nsew")
         psb.grid(row=0, column=1, sticky="ns")
-        self.valid_lbl = ttk.Label(right, text="", wraplength=470, justify="left")
-        self.valid_lbl.grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
-        self.target_lbl = ttk.Label(right, text="", style="Hint.TLabel", wraplength=470,
+        self.valid_lbl = ttk.Label(right, text="", wraplength=520, justify="left")
+        self.valid_lbl.grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        self.target_lbl = ttk.Label(right, text="", style="Hint.TLabel", wraplength=520,
                                     justify="left")
-        self.target_lbl.grid(row=2, column=0, columnspan=2, sticky="w")
-        self._build_ilvl_hint(right)
+        self.target_lbl.grid(row=2, column=0, columnspan=2, sticky="w", pady=(3, 8))
+        self._action_bar = ttk.Frame(right, padding=(0, 4))
+        self._action_bar.grid(row=3, column=0, columnspan=2, sticky="ew")
+        self._action_bar.columnconfigure(0, weight=1)
 
     # ------------------------------------------------------------ 防抖 / 追踪
     def _bind_preview_traces(self) -> None:
@@ -617,14 +616,11 @@ class GenTab(ttk.Frame):
         self._refresh_item_list()
         if not self.gen.ready:
             self._suppress_refresh = True
-            uic.set_text(self.preview,
-                         "【生成器未就绪】\n\n"
-                         "lib/d1itemgen.py 尚未提供，暂时不能生成完整 368 字节记录。\n\n"
-                         "现在仍可使用：「简易随机 → 背包」：随机 seed + create_info，"
-                         "写进角色背包，由游戏自己重建物品，天然合法（普通/魔法）。")
-            self.banner.configure(text=self.gen.status_text(), style="Bad.TLabel")
+            uic.set_text(self.preview, "生成器未就绪。可在「更多」中使用简易随机。")
+            self.banner.configure(text="生成器未就绪", style="Bad.TLabel")
+            self.banner.grid()
         else:
-            self.banner.configure(text=self.gen.status_text(), style="Ok.TLabel")
+            self.banner.grid_remove()
             self._schedule_refresh()
         self.btn_stash.state(["!disabled"] if self.gen.ready else ["disabled"])
         self.btn_bag.state(["!disabled"] if self.gen.ready else ["disabled"])
@@ -643,8 +639,8 @@ class GenTab(ttk.Frame):
         ]
         self.listbox.delete(0, "end")
         for b in self._filtered:
-            self.listbox.insert("end", b.label)
-        self.lbl_bases.configure(text=f"{len(self._filtered)} / {len(self.items)} 种")
+            self.listbox.insert("end", b.cn or b.name)
+        self.lbl_bases.configure(text=f"{len(self._filtered)} 种")
         if self._filtered:
             pos = 0
             if cur_idx is not None:
@@ -756,20 +752,18 @@ class GenTab(ttk.Frame):
                     mapping[label] = aff
                 cb["values"] = list(mapping)
                 cb.set(prev if prev in mapping else RANDOM_LABEL)
-            self.affix_hint.configure(
-                text=(f"全部词缀已列出（不按 ilvl 过滤）：{len(self._pre_map) - 1} 前缀 / "
-                      f"{len(self._suf_map) - 1} 后缀"))
+            self.affix_hint.configure(text="")
         else:
             self.cb_pre["values"] = [RANDOM_LABEL]
             self.cb_suf["values"] = [RANDOM_LABEL]
             self.cb_pre.set(RANDOM_LABEL)
             self.cb_suf.set(RANDOM_LABEL)
             if b is None:
-                self.affix_hint.configure(text="先在「1. 选择底材」里点一个装备。")
+                self.affix_hint.configure(text="先选底材。")
             elif not self.gen.ready:
-                self.affix_hint.configure(text="生成器未就绪，暂时没有词缀列表。")
+                self.affix_hint.configure(text="词缀列表未就绪。")
             else:
-                self.affix_hint.configure(text="该底材没有可用的随机词缀。")
+                self.affix_hint.configure(text="该底材没有词缀。")
         self._on_affix_pick("pre")
         self._on_affix_pick("suf")
 
@@ -839,8 +833,7 @@ class GenTab(ttk.Frame):
         self._render_value_slots(which, aff)
         sp.state(["!disabled"] if (numeric and self.gen.supports_values) else ["disabled"])
         if numeric and not self.gen.supports_values:
-            self.affix_hint.configure(text="当前 d1itemgen 版本不支持指定数值（等待 itemgen2 更新），"
-                                           "只能随机。")
+            self.affix_hint.configure(text="当前版本不支持指定数值，只能随机。")
         self._schedule_refresh()
 
     # ------------------------------------------------------------ 数值槽（Round 6）
@@ -1192,7 +1185,7 @@ class GenTab(ttk.Frame):
     def _update_base_stats_hint(self) -> None:
         bp = self._current_base_preview()
         if not bp:
-            self.lbl_base_stats_hint.configure(text="先选底材，这里会显示护甲/耐久的自然范围。")
+            self.lbl_base_stats_hint.configure(text="先选底材。")
             return
         max_ac = int(bp.get("max_ac") or 0)
         max_dur = int(bp.get("max_dur") or 0)
@@ -1207,7 +1200,7 @@ class GenTab(ttk.Frame):
         else:
             parts.append("无耐久")
         self.lbl_base_stats_hint.configure(
-            text="；".join(parts) + "；满值直接写入记录，写背包会丢")
+            text="；".join(parts))
 
     # ------------------------------------------------------------ 目标标签
     def _update_target_labels(self) -> None:
@@ -1215,13 +1208,13 @@ class GenTab(ttk.Frame):
             stash = self.app.tab_stash.stash
         except Exception:  # noqa: BLE001
             stash = None
-        stash_s = Path(stash.path).name if stash is not None else "（未打开）"
+        stash_s = Path(stash.path).name if stash is not None else "未打开"
         try:
             char = self.app.tab_char.hero
         except Exception:  # noqa: BLE001
             char = None
-        char_s = char.name if char is not None else "（未选择角色）"
-        self.target_lbl.configure(text=f"储物箱目标：{stash_s}    背包目标：{char_s}")
+        char_s = char.name if char is not None else "未选角色"
+        self.target_lbl.configure(text=f"储物箱：{stash_s}    背包：{char_s}")
 
     # ============================================================ 实时预览
     def refresh_preview(self, force: bool = False) -> str:
@@ -1364,9 +1357,8 @@ class GenTab(ttk.Frame):
         b = self._current_item()
         if b is None:
             self.valid_lbl.configure(text="", style="Hint.TLabel")
-            return ("请先在左侧「1. 选择底材」里点一个装备。\n\n"
-                    "选中后这里会随底材 / 词缀 / ilvl / 满值 / 法杖选项实时刷新"
-                    "（不会生成物品，也不搜索 seed）。", None)
+            return ("请先在左侧选择一件底材。\n\n"
+                    "词缀和属性设置会实时反映在右侧预览中。", None)
         bp = self._base_preview(b.idx)
         magic = self.var_rarity.get() == "magic"
         pre = self._affix("pre") if magic else None
@@ -1376,7 +1368,6 @@ class GenTab(ttk.Frame):
         ilvl = self._ilvl_or_none()
 
         base_cn = str(bp.get("base_cn") or b.cn)
-        base_en = str(bp.get("base_en") or b.name)
         itype = str(bp.get("itype_name") or "")
         size = bp.get("size") or b.size or (1, 1)
         try:
@@ -1397,11 +1388,11 @@ class GenTab(ttk.Frame):
         lines: list[str] = [f"{name}（{quality}）", ""]
         kind = str(bp.get("kind") or b.kind)
         itype_cn = ITYPE_CN.get(itype, itype)
-        lines.append(f"底材：{base_cn}（{base_en}）    {kind}/{itype_cn}  {sw}x{sh}")
+        lines.append(f"底材：{base_cn}    {kind}/{itype_cn}  {sw}x{sh}")
         lines.append("")
 
         # ---- 基础属性 ----
-        lines.append("基础属性（自然范围 → 满值）")
+        lines.append("基础属性")
         min_ac = int(bp.get("min_ac") or 0)
         max_ac = int(bp.get("max_ac") or 0)
         if max_ac > 0:
@@ -1424,7 +1415,7 @@ class GenTab(ttk.Frame):
         lines.append("")
 
         # ---- 词缀 ----
-        lines.append("词缀（全部显示；生成时按 ilvl 校验）")
+        lines.append("词缀")
         if not magic:
             lines.append("  （普通物品没有词缀）")
         else:
@@ -1453,13 +1444,9 @@ class GenTab(ttk.Frame):
                 else:
                     lines.append(f"  法术：{SPELL_RANDOM}（由游戏随机滚，充能也随机）")
                 if staff_spell_min and (ilvl is None or ilvl < staff_spell_min):
-                    lines.append(f"  ⚠ 该法术需要 ilvl≥{staff_spell_min}"
-                                 f"（当前 {ilvl if ilvl is not None else '?'}）")
-                lines.append("  说明：法术法杖只有前缀、没有后缀（游戏规则）；"
-                             "随机法术也要求 seed 必须带法术/充能，不会退化成属性法杖。")
+                    lines.append(f"该法术需要 ilvl ≥ {staff_spell_min}")
                 if suf is not None:
-                    lines.append("  ✘ 已选后缀：法术法杖不能带后缀，生成会被拒绝；"
-                                 "请把后缀改回「（随机合法）」，或把形态改回「属性法杖」")
+                    lines.append("法术法杖不能带后缀，请清空后缀")
             lines.append("")
 
         # ---- 合法性 ----
@@ -1472,20 +1459,12 @@ class GenTab(ttk.Frame):
                        and cap_text in str(plan.get("bad_reason") or ""))
         chk, err_text = self._preview_check(b, ilvl, magic, pre, suf, staff)
         conflict = self._base_stats_conflict(pre, suf)
-        lines.append(f"合法性（ilvl={ilvl if ilvl is not None else '?'}）")
         if err_text:
-            lines.append(f"  ✘ {err_text}")
+            lines.append(err_text)
         elif chk is None:
-            lines.append("  ℹ 生成器未就绪，暂时无法预检。")
-        elif chk.ok:
-            lines.append("  ✔ 规则检查通过")
-            msg = str(chk.message or "").strip()
-            if "未搜索种子" in msg:
-                msg = "该组合符合游戏规则（实时预览不搜索 seed）。"
-            if msg:
-                lines.append(f"    {msg}")
-        else:
-            lines.append(f"  ✘ {chk.title}")
+            lines.append("生成器未就绪")
+        elif not chk.ok:
+            lines.append(chk.title)
             for part in str(chk.message).splitlines():
                 part = part.strip()
                 if cap_bad:
@@ -1498,34 +1477,32 @@ class GenTab(ttk.Frame):
                 for suggest in (chk.suggestions or [])[:3]:
                     lines.append(f"    · {suggest}")
         if conflict:
-            lines.append(f"  ✘ {conflict}")
+            lines.append(conflict)
 
         if plan.get("no_overlap"):
-            lines.append(f"  ✘ {plan.get('bad_reason')}")
+            lines.append(str(plan.get('bad_reason')))
         elif (rec is None and staff_spell_min and plan.get("hi") is not None
               and int(staff_spell_min) > int(plan["hi"])):
-            lines.append(f"  ✘ 该法术需要 ilvl≥{staff_spell_min}，超出该词缀的合法区间"
-                         f"（{plan['lo']}~{plan['hi']}），请换词缀或换法术。")
+            lines.append("该法术的 ilvl 超出词缀合法区间，请换词缀或法术。")
         elif rec is not None:
             span = plan.get("span_text") or ""
             extra = f"（{span}）" if span else ""
             if ilvl == rec:
-                lines.append(f"  → 当前 ilvl {rec}{extra} 已在合法区间内，可以直接生成。")
+                lines.append(f"推荐 ilvl {rec}{extra}（当前已符合）")
             else:
-                lines.append(f"  → 推荐 ilvl {rec}{extra}；点「用推荐 ilvl」可自动填入。")
+                lines.append(f"推荐 ilvl {rec}{extra}")
         lines.append("")
 
         # ---- 满值提示 ----
         flags = self._base_stats_flags()
         if flags["max_ac"] or flags["full_dur"]:
-            lines.append("满值提示：满值只对「生成到储物箱」有效；"
-                         "写背包会被游戏按 seed 重建为随机值。")
+            lines.append("满值只对生成到储物箱有效。")
             if flags["max_ac"] and not bp.get("can_max_ac"):
-                lines.append("  ⚠ 该底材没有护甲，护甲满值不会生效。")
+                lines.append("该底材没有护甲。")
             if flags["full_dur"] and not bp.get("can_full_dur"):
-                lines.append("  ⚠ 该底材没有可磨损耐久（或不可破坏），耐久满值不会生效。")
+                lines.append("该底材没有耐久。")
             if conflict:
-                lines.append(f"  ✘ {conflict}")
+                lines.append(conflict)
             lines.append("")
         elif not self.gen.ready:
             lines.append("")
@@ -1535,40 +1512,28 @@ class GenTab(ttk.Frame):
         cap = self._drop_cap()
         bonus = max(1, cap - 3)
         if ilvl is None:
-            drop_text = f"否（ilvl 未填，填 1~{cap} 才能丢地上）"
-        elif drop_safe and ilvl > cap - 4:
-            drop_text = (f"是（ilvl {ilvl} 自动走暗金怪掉落路线：记录等级 {ilvl - 4} + "
-                         "CF_UPER15）")
-        elif drop_safe:
-            drop_text = f"是（ilvl {ilvl} ≤ {cap}）"
-        elif ilvl <= 30:
-            drop_text = f"是（ilvl {ilvl} ≤ 30）"
+            drop_text = "否（未填 ilvl）"
+        elif (drop_safe and ilvl <= cap) or ilvl <= 30:
+            drop_text = "是"
         else:
-            drop_text = (f"否（未勾选「可丢地上」：记录等级 {ilvl} > 30，只能放储物箱）")
+            drop_text = "否"
         lines.append(f"可丢地上：{drop_text}")
         drop_danger = (not drop_safe and ilvl is not None and ilvl > 30)
         if drop_danger:
-            lines.append("  ⚠ 只能放储物箱；丢地上会提示「无效的数据包」并消失"
-                         f"（勾选「可丢地上」后 ilvl≤{cap} 才能丢地上）。")
-        elif not drop_safe:
-            lines.append(f"  ℹ 已取消「可丢地上」：ilvl 范围 1~50；"
-                         f"ilvl≤30 仍然可以丢地上（勾选后 {bonus}~{cap} 走暗金怪路线）。")
+            lines.append("只能放储物箱：丢地上会提示「无效的数据包」并消失。")
         lines.append("")
 
         ok_all = (not err_text and not conflict
                   and (chk is None or chk.ok))
         if drop_danger:
-            self.valid_lbl.configure(
-                text=("⚠ 只能放储物箱：丢地上会提示「无效的数据包」并消失"
-                      f"（勾选「可丢地上」后 ilvl≤{cap} 才能丢地上）"),
-                style="Bad.TLabel")
+            self.valid_lbl.configure(text="只能放储物箱", style="Bad.TLabel")
         elif ok_all:
             self.valid_lbl.configure(
-                text="✔ 组合合法（规则检查通过；实时预览不搜索 seed）", style="Ok.TLabel")
+                text="可以生成", style="Ok.TLabel")
         else:
             title = err_text or (conflict if conflict else
                                  (chk.title if chk is not None else "生成器未就绪"))
-            self.valid_lbl.configure(text=f"✘ {title}", style="Bad.TLabel")
+            self.valid_lbl.configure(text=title, style="Bad.TLabel")
         return ("\n".join(lines).rstrip() + "\n",
                 "#c62828" if drop_danger else None)
 
@@ -1626,7 +1591,7 @@ class GenTab(ttk.Frame):
             effect = aff.effect
         except Exception:  # noqa: BLE001
             effect = ""
-        body = f"{aff.cn}（{aff.en}）"
+        body = str(aff.cn)
         try:
             two_slots = len(aff.value_slots) > 1
         except Exception:  # noqa: BLE001
@@ -2011,7 +1976,7 @@ class GenTab(ttk.Frame):
         self._suppress_refresh = True
         text = "【无法生成】\n\n" + chk.text()
         uic.set_text(self.preview, text, color="#c62828")
-        self.valid_lbl.configure(text=f"✘ {chk.title}", style="Bad.TLabel")
+        self.valid_lbl.configure(text=chk.title, style="Bad.TLabel")
         self._set_progress("组合不合法，未生成任何物品。")
         self._log(f"生成被拒绝：{chk.title}｜{chk.message}", "err")
         uic.detail_warning(
@@ -2108,7 +2073,7 @@ class GenTab(ttk.Frame):
         if drop_note:
             lines.append(f"掉落：{drop_note}")
         if drop_note and not droppable:
-            lines.append("⚠ 该物品只能放储物箱：丢地上会提示「无效的数据包」并消失。")
+            lines.append("该物品只能放储物箱。")
         lines.append("")
         body = res.text or ""
         if drop_note:
@@ -2127,24 +2092,21 @@ class GenTab(ttk.Frame):
             self._mark_preview(f"掉落：{drop_note}",
                                "#1a7f37" if droppable else "#c62828", "dropnote")
         if drop_note and not droppable:
-            self._mark_preview("⚠ 该物品只能放储物箱", "#c62828", "dropwarn")
+            self._mark_preview("该物品只能放储物箱", "#c62828", "dropwarn")
         bad = [v for r in results for v in (r.validation or [])]
         if bad:
-            self.valid_lbl.configure(text="✘ 合法性校验未通过：\n" + "\n".join(bad[:8]),
+            self.valid_lbl.configure(text="校验未通过：\n" + "\n".join(bad[:8]),
                                      style="Bad.TLabel")
         elif drop_note and not droppable:
-            self.valid_lbl.configure(
-                text=("✔ 合法性校验通过（d1itemgen.validate）\n"
-                      "⚠ 但只能放储物箱：丢地上会提示「无效的数据包」并消失"),
-                style="Bad.TLabel")
+            self.valid_lbl.configure(text="校验通过，但只能放储物箱", style="Bad.TLabel")
         else:
-            self.valid_lbl.configure(text="✔ 合法性校验通过（d1itemgen.validate）",
+            self.valid_lbl.configure(text="校验通过",
                                      style="Ok.TLabel")
 
     # ------------------------------------------------------------ 生成入口
     def gen_to_stash(self) -> None:
         if not self.gen.ready:
-            uic.warn("生成器未就绪", "d1itemgen 尚未提供，暂时只能用「简易随机 → 背包」。")
+            uic.warn("生成器未就绪", "请使用「更多 → 简易随机到背包」。")
             return
         try:
             params = self._params_dict()
@@ -2162,7 +2124,7 @@ class GenTab(ttk.Frame):
 
     def gen_to_backpack(self) -> None:
         if not self.gen.ready:
-            uic.warn("生成器未就绪", "d1itemgen 尚未提供，请使用「简易随机 → 背包」。")
+            uic.warn("生成器未就绪", "请使用「更多 → 简易随机到背包」。")
             return
         try:
             params = self._params_dict()
@@ -2175,10 +2137,7 @@ class GenTab(ttk.Frame):
         if params["max_ac"] or params["full_durability"]:
             ok = uic.confirm(
                 "满值物品写入背包会失效",
-                "背包写入只保存 seed，游戏会按 seed 重建物品：\n"
-                "· 「护甲满值 / 耐久满值」在背包里会被重建成随机值；\n"
-                "· 想要满值请点「生成到储物箱」——那里写完整 368 字节记录，满值生效。\n\n"
-                "仍然写入角色背包吗？")
+                "满值只在生成到储物箱时生效。仍然写入背包吗？")
             if not ok:
                 return
         if not self._preflight(params):
@@ -2269,7 +2228,7 @@ class GenTab(ttk.Frame):
                 uic.set_text(self.preview, "【合法性校验未通过】\n\n" + chk.text(),
                              color="#c62828")
                 self._set_progress("生成结果未通过校验，未写入任何物品。")
-                self.valid_lbl.configure(text=f"✘ {chk.title}", style="Bad.TLabel")
+                self.valid_lbl.configure(text=chk.title, style="Bad.TLabel")
                 self._log(f"生成结果校验失败：{bad}", "err")
                 uic.detail_warning("这个组合不符合游戏规则", chk.title, chk.message,
                                    chk.suggestions, chk.detail, parent=self, modal=True)
@@ -2292,7 +2251,7 @@ class GenTab(ttk.Frame):
             self._log(f"生成失败：{exc}", "err")
             self._suppress_refresh = True
             uic.set_text(self.preview, "【无法生成】\n\n" + chk.text(), color="#c62828")
-            self.valid_lbl.configure(text=f"✘ {chk.title}", style="Bad.TLabel")
+            self.valid_lbl.configure(text=chk.title, style="Bad.TLabel")
             uic.detail_warning("无法生成该物品", chk.title, chk.message, chk.suggestions,
                                chk.detail, parent=self, modal=True)
 
@@ -2354,7 +2313,7 @@ class GenTab(ttk.Frame):
             msg = hero.save(clear_progress=False)
             after = int(HeroEdit(hero.path).pack.get("_pNumInv"))
         except Exception as exc:  # noqa: BLE001
-            uic.error("写入背包失败", f"{type(exc).__name__}: {exc}\n（背包可能已满）")
+            uic.error("写入背包失败", f"{exc}\n（背包可能已满）")
             return
         if after - before < len(names):
             uic.warn("部分物品可能没进存档",
@@ -2364,10 +2323,9 @@ class GenTab(ttk.Frame):
             self._set_progress(f"背包只写入了 {after - before} 件。")
             return
         self._suppress_refresh = True
-        uic.set_text(self.preview, "简易随机（写角色背包，游戏按 seed 重建）\n\n"
+        uic.set_text(self.preview, "简易随机\n\n"
                                    + "\n".join(names[:10]))
-        self.valid_lbl.configure(text="ℹ 简易随机不做词条校验：物品由游戏按 seed 重建，"
-                                      "天然合法，但词条不可指定。", style="Hint.TLabel")
+        self.valid_lbl.configure(text="简易随机不做词条校验。", style="Hint.TLabel")
         self._log(f"简易随机物品已写入背包：{'；'.join(names[:6])}（{msg}）", "ok")
         self.app.refresh_all(keep_char=True)
         uic.info("成功", f"已写入 {len(names)} 件物品到「{hero.name}」的背包（seed 随机）。")
