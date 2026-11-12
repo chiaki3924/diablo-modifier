@@ -1,0 +1,3 @@
+# Runtime: Windows x64 + Python 3.12 (standard library + tkinter only).
+# Build only:
+pyinstaller>=6.0,<7

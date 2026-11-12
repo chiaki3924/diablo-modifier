@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+!_d1pyc/*.pyc
+.venv/
+venv/
+build/
+dist/
+*.spec
+tests/tmp/
+tests/fixtures/saves/*
+!tests/fixtures/saves/.gitkeep
+*.log
+*.bak
+*.bak-*
