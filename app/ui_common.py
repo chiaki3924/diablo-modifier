@@ -143,13 +143,19 @@ def make_style(root: tk.Misc) -> ttk.Style:
         style.configure(name, background=BG, foreground=TEXT)
     style.configure("TButton", padding=(11, 5), background=SURFACE,
                     bordercolor=BORDER, focuscolor=ACCENT)
-    style.map("TButton", background=[("pressed", SELECT), ("active", "#F0E8DE")],
-              bordercolor=[("active", ACCENT)])
+    style.map("TButton", background=[("disabled", BG), ("pressed", SELECT),
+                                     ("active", "#F0E8DE")],
+              bordercolor=[("active", ACCENT)],
+              foreground=[("disabled", "#A79E93")])
     style.configure("Primary.TButton", padding=(14, 6), background=ACCENT,
                     foreground="#FFFFFF", bordercolor=ACCENT)
+    # 禁用态必须是「一眼看出不能点」：深红底 + 浅字几乎和可用态一样，
+    # 只读模式下「保存金币」这类按钮会被误认为仍可点，所以背景退回浅灰。
     style.map("Primary.TButton",
-              background=[("pressed", ACCENT_ACTIVE), ("active", ACCENT_ACTIVE)],
-              foreground=[("disabled", "#E8DDD8")])
+              background=[("disabled", "#E7DFD5"), ("pressed", ACCENT_ACTIVE),
+                          ("active", ACCENT_ACTIVE)],
+              foreground=[("disabled", "#A79E93")],
+              bordercolor=[("disabled", BORDER)])
     style.configure("TNotebook", borderwidth=0, tabmargins=(0, 4, 0, 0))
     style.configure("TNotebook.Tab", padding=(18, 7), background="#E9E3DA",
                     foreground=MUTED)
