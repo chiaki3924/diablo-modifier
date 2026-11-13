@@ -445,6 +445,7 @@ class UniqueTab(ttk.Frame):
         droppable = self._drop_safe_on()
         self.btn_stash.state(["disabled"])
         self.btn_bag.state(["disabled"])
+        self.btn_cancel.grid(row=0, column=2)
         self.btn_cancel.state(["!disabled"])
         self.progress.configure(text=f"正在生成暗金「{u.cn}」…")
 
@@ -515,6 +516,7 @@ class UniqueTab(ttk.Frame):
         ok = bool(u is not None and u.base_available and self.gen.ready)
         self.btn_stash.state(["!disabled"] if ok else ["disabled"])
         self.btn_bag.state(["!disabled"] if ok else ["disabled"])
+        self.btn_cancel.grid_remove()
         self.btn_cancel.state(["disabled"])
 
     def _cancel(self) -> None:

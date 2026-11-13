@@ -220,6 +220,8 @@ class StashTab(ttk.Frame):
             self._rows[row] = i
         self.lbl_count.configure(text=f"物品 {self.stash.item_count()}")
         self.lbl_pages.configure(text=f"页数 {len(self.stash.pages())}")
+        # 列表重建后选中项已清空，删除按钮同步回到禁用态
+        self.btn_delete.state(["disabled"])
 
     # ------------------------------------------------------------ 异常物品
     def _gen_adapter(self):

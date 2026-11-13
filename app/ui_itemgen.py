@@ -2154,6 +2154,7 @@ class GenTab(ttk.Frame):
             return
         self.btn_stash.state(["disabled"])
         self.btn_bag.state(["disabled"])
+        self.btn_cancel.grid(row=0, column=3, padx=(6, 0))
         self.btn_cancel.state(["!disabled"])
         self._set_progress("正在生成…")
         self._suppress_refresh = True
@@ -2261,6 +2262,7 @@ class GenTab(ttk.Frame):
     def _finish_buttons(self) -> None:
         self.btn_stash.state(["!disabled"] if self.gen.ready else ["disabled"])
         self.btn_bag.state(["!disabled"] if self.gen.ready else ["disabled"])
+        self.btn_cancel.grid_remove()
         self.btn_cancel.state(["disabled"])
 
     def _cancel(self) -> None:

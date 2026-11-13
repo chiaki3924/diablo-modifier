@@ -274,7 +274,8 @@ class App(tk.Tk):
         except Exception as exc:  # noqa: BLE001
             self.log(f"刷新储物箱失败：{exc}", "warn")
         self.tab_gen._update_target_labels()
-        self.status_lbl.configure(text="")
+        # 注意：不要在这里清空 status_lbl —— 保存流程是 log() 后紧跟 refresh_all()，
+        # 清空会把「已保存」等反馈瞬间抹掉。
 
     def on_char_loaded(self, path: Path) -> None:
         # ilvl 默认取角色等级（最多 50）
