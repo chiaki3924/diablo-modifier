@@ -33,8 +33,8 @@ DevilutionX 是《暗黑破坏神》和《地狱火》的移植版本，旨在�
 
 ## 下载
 
-- [diablo-modifier-v2.exe](https://github.com/chiaki3924/diablo-modifier/releases/latest/download/diablo-modifier-v2.exe)：单文件，不需要安装 Python。
-- SHA256：`15587BE1A222BC106B49E4B258C582D3A00B6A6588BC59C2469FCABD8D991CD6`
+- [diablo-modifier-v2.exe](https://github.com/chiaki3924/diablo-modifier/releases/latest/download/diablo-modifier-v2.exe)：单文件，不需要安装 Python（当前版本 v2.6.1）。
+- SHA256：`F3D06D68330E79333FC091C4AD99ADE3EE4AFB26AA1AF5E67D8067719B0B3C0F`
 - 全部版本与校验文件见 [Releases](https://github.com/chiaki3924/diablo-modifier/releases)。
 
 ## 使用
